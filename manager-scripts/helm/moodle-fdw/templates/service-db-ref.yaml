@@ -1,0 +1,16 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "moodle-fdw.fullname" . }}-db-ref
+  labels:
+    {{- include "moodle-fdw.labels" . | nindent 4 }}
+spec:
+  type: {{ .Values.service.type }}
+  ports:
+    - port: 5432
+      targetPort: http-db-ref
+      protocol: TCP
+      name: http-db-ref
+  selector:
+    {{- include "moodle-fdw.selectorLabels" . | nindent 4 }}
+    app.kubernetes.io/tier: db-ref   

@@ -1,0 +1,2561 @@
+extension plpgsql:
+  description: PL/pgSQL procedural language
+  owner: camunda
+  schema: pg_catalog
+  version: '1.0'
+schema public:
+  description: standard public schema
+  owner: camunda
+  privileges:
+  - PUBLIC:
+    - all
+  - camunda:
+    - all
+  table act_ge_bytearray:
+    columns:
+    - id_:
+        not_null: true
+        type: character varying(64)
+    - rev_:
+        type: integer
+    - name_:
+        type: character varying(255)
+    - deployment_id_:
+        type: character varying(64)
+    - bytes_:
+        type: bytea
+    - generated_:
+        type: boolean
+    - tenant_id_:
+        type: character varying(64)
+    foreign_keys:
+      act_fk_bytearr_depl:
+        columns:
+        - deployment_id_
+        references:
+          columns:
+          - id_
+          schema: public
+          table: act_re_deployment
+    indexes:
+      act_idx_bytear_depl:
+        keys:
+        - deployment_id_
+      act_idx_bytearray_name:
+        keys:
+        - name_
+    owner: camunda
+    primary_key:
+      act_ge_bytearray_pkey:
+        columns:
+        - id_
+  table act_ge_property:
+    columns:
+    - name_:
+        not_null: true
+        type: character varying(64)
+    - value_:
+        type: character varying(300)
+    - rev_:
+        type: integer
+    owner: camunda
+    primary_key:
+      act_ge_property_pkey:
+        columns:
+        - name_
+  table act_hi_actinst:
+    columns:
+    - id_:
+        not_null: true
+        type: character varying(64)
+    - parent_act_inst_id_:
+        type: character varying(64)
+    - proc_def_key_:
+        type: character varying(255)
+    - proc_def_id_:
+        not_null: true
+        type: character varying(64)
+    - proc_inst_id_:
+        not_null: true
+        type: character varying(64)
+    - execution_id_:
+        not_null: true
+        type: character varying(64)
+    - act_id_:
+        not_null: true
+        type: character varying(255)
+    - task_id_:
+        type: character varying(64)
+    - call_proc_inst_id_:
+        type: character varying(64)
+    - call_case_inst_id_:
+        type: character varying(64)
+    - act_name_:
+        type: character varying(255)
+    - act_type_:
+        not_null: true
+        type: character varying(255)
+    - assignee_:
+        type: character varying(64)
+    - start_time_:
+        not_null: true
+        type: timestamp without time zone
+    - end_time_:
+        type: timestamp without time zone
+    - duration_:
+        type: bigint
+    - act_inst_state_:
+        type: integer
+    - sequence_counter_:
+        type: bigint
+    - tenant_id_:
+        type: character varying(64)
+    indexes:
+      act_idx_hi_act_inst_comp:
+        keys:
+        - execution_id_
+        - act_id_
+        - end_time_
+        - id_
+      act_idx_hi_act_inst_end:
+        keys:
+        - end_time_
+      act_idx_hi_act_inst_proc_def_key:
+        keys:
+        - proc_def_key_
+      act_idx_hi_act_inst_procinst:
+        keys:
+        - proc_inst_id_
+        - act_id_
+      act_idx_hi_act_inst_start:
+        keys:
+        - start_time_
+      act_idx_hi_act_inst_stats:
+        keys:
+        - proc_def_id_
+        - act_id_
+        - end_time_
+        - act_inst_state_
+      act_idx_hi_act_inst_tenant_id:
+        keys:
+        - tenant_id_
+    owner: camunda
+    primary_key:
+      act_hi_actinst_pkey:
+        columns:
+        - id_
+  table act_hi_attachment:
+    columns:
+    - id_:
+        not_null: true
+        type: character varying(64)
+    - rev_:
+        type: integer
+    - user_id_:
+        type: character varying(255)
+    - name_:
+        type: character varying(255)
+    - description_:
+        type: character varying(4000)
+    - type_:
+        type: character varying(255)
+    - task_id_:
+        type: character varying(64)
+    - proc_inst_id_:
+        type: character varying(64)
+    - url_:
+        type: character varying(4000)
+    - content_id_:
+        type: character varying(64)
+    - tenant_id_:
+        type: character varying(64)
+    indexes:
+      act_idx_hi_attachment_content:
+        keys:
+        - content_id_
+      act_idx_hi_attachment_procinst:
+        keys:
+        - proc_inst_id_
+      act_idx_hi_attachment_task:
+        keys:
+        - task_id_
+    owner: camunda
+    primary_key:
+      act_hi_attachment_pkey:
+        columns:
+        - id_
+  table act_hi_batch:
+    columns:
+    - id_:
+        not_null: true
+        type: character varying(64)
+    - type_:
+        type: character varying(255)
+    - total_jobs_:
+        type: integer
+    - jobs_per_seed_:
+        type: integer
+    - invocations_per_job_:
+        type: integer
+    - seed_job_def_id_:
+        type: character varying(64)
+    - monitor_job_def_id_:
+        type: character varying(64)
+    - batch_job_def_id_:
+        type: character varying(64)
+    - tenant_id_:
+        type: character varying(64)
+    - start_time_:
+        not_null: true
+        type: timestamp without time zone
+    - end_time_:
+        type: timestamp without time zone
+    owner: camunda
+    primary_key:
+      act_hi_batch_pkey:
+        columns:
+        - id_
+  table act_hi_caseactinst:
+    columns:
+    - id_:
+        not_null: true
+        type: character varying(64)
+    - parent_act_inst_id_:
+        type: character varying(64)
+    - case_def_id_:
+        not_null: true
+        type: character varying(64)
+    - case_inst_id_:
+        not_null: true
+        type: character varying(64)
+    - case_act_id_:
+        not_null: true
+        type: character varying(255)
+    - task_id_:
+        type: character varying(64)
+    - call_proc_inst_id_:
+        type: character varying(64)
+    - call_case_inst_id_:
+        type: character varying(64)
+    - case_act_name_:
+        type: character varying(255)
+    - case_act_type_:
+        type: character varying(255)
+    - create_time_:
+        not_null: true
+        type: timestamp without time zone
+    - end_time_:
+        type: timestamp without time zone
+    - duration_:
+        type: bigint
+    - state_:
+        type: integer
+    - required_:
+        type: boolean
+    - tenant_id_:
+        type: character varying(64)
+    indexes:
+      act_idx_hi_cas_a_i_comp:
+        keys:
+        - case_act_id_
+        - end_time_
+        - id_
+      act_idx_hi_cas_a_i_create:
+        keys:
+        - create_time_
+      act_idx_hi_cas_a_i_end:
+        keys:
+        - end_time_
+      act_idx_hi_cas_a_i_tenant_id:
+        keys:
+        - tenant_id_
+    owner: camunda
+    primary_key:
+      act_hi_caseactinst_pkey:
+        columns:
+        - id_
+  table act_hi_caseinst:
+    columns:
+    - id_:
+        not_null: true
+        type: character varying(64)
+    - case_inst_id_:
+        not_null: true
+        type: character varying(64)
+    - business_key_:
+        type: character varying(255)
+    - case_def_id_:
+        not_null: true
+        type: character varying(64)
+    - create_time_:
+        not_null: true
+        type: timestamp without time zone
+    - close_time_:
+        type: timestamp without time zone
+    - duration_:
+        type: bigint
+    - state_:
+        type: integer
+    - create_user_id_:
+        type: character varying(255)
+    - super_case_instance_id_:
+        type: character varying(64)
+    - super_process_instance_id_:
+        type: character varying(64)
+    - tenant_id_:
+        type: character varying(64)
+    indexes:
+      act_idx_hi_cas_i_buskey:
+        keys:
+        - business_key_
+      act_idx_hi_cas_i_close:
+        keys:
+        - close_time_
+      act_idx_hi_cas_i_tenant_id:
+        keys:
+        - tenant_id_
+    owner: camunda
+    primary_key:
+      act_hi_caseinst_pkey:
+        columns:
+        - id_
+    unique_constraints:
+      act_hi_caseinst_case_inst_id__key:
+        columns:
+        - case_inst_id_
+  table act_hi_comment:
+    columns:
+    - id_:
+        not_null: true
+        type: character varying(64)
+    - type_:
+        type: character varying(255)
+    - time_:
+        not_null: true
+        type: timestamp without time zone
+    - user_id_:
+        type: character varying(255)
+    - task_id_:
+        type: character varying(64)
+    - proc_inst_id_:
+        type: character varying(64)
+    - action_:
+        type: character varying(255)
+    - message_:
+        type: character varying(4000)
+    - full_msg_:
+        type: bytea
+    - tenant_id_:
+        type: character varying(64)
+    indexes:
+      act_idx_hi_comment_procinst:
+        keys:
+        - proc_inst_id_
+      act_idx_hi_comment_task:
+        keys:
+        - task_id_
+    owner: camunda
+    primary_key:
+      act_hi_comment_pkey:
+        columns:
+        - id_
+  table act_hi_dec_in:
+    columns:
+    - id_:
+        not_null: true
+        type: character varying(64)
+    - dec_inst_id_:
+        not_null: true
+        type: character varying(64)
+    - clause_id_:
+        type: character varying(64)
+    - clause_name_:
+        type: character varying(255)
+    - var_type_:
+        type: character varying(100)
+    - bytearray_id_:
+        type: character varying(64)
+    - double_:
+        type: double precision
+    - long_:
+        type: bigint
+    - text_:
+        type: character varying(4000)
+    - text2_:
+        type: character varying(4000)
+    - tenant_id_:
+        type: character varying(64)
+    indexes:
+      act_idx_hi_dec_in_clause:
+        keys:
+        - dec_inst_id_
+        - clause_id_
+      act_idx_hi_dec_in_inst:
+        keys:
+        - dec_inst_id_
+    owner: camunda
+    primary_key:
+      act_hi_dec_in_pkey:
+        columns:
+        - id_
+  table act_hi_dec_out:
+    columns:
+    - id_:
+        not_null: true
+        type: character varying(64)
+    - dec_inst_id_:
+        not_null: true
+        type: character varying(64)
+    - clause_id_:
+        type: character varying(64)
+    - clause_name_:
+        type: character varying(255)
+    - rule_id_:
+        type: character varying(64)
+    - rule_order_:
+        type: integer
+    - var_name_:
+        type: character varying(255)
+    - var_type_:
+        type: character varying(100)
+    - bytearray_id_:
+        type: character varying(64)
+    - double_:
+        type: double precision
+    - long_:
+        type: bigint
+    - text_:
+        type: character varying(4000)
+    - text2_:
+        type: character varying(4000)
+    - tenant_id_:
+        type: character varying(64)
+    indexes:
+      act_idx_hi_dec_out_inst:
+        keys:
+        - dec_inst_id_
+      act_idx_hi_dec_out_rule:
+        keys:
+        - rule_order_
+        - clause_id_
+    owner: camunda
+    primary_key:
+      act_hi_dec_out_pkey:
+        columns:
+        - id_
+  table act_hi_decinst:
+    columns:
+    - id_:
+        not_null: true
+        type: character varying(64)
+    - dec_def_id_:
+        not_null: true
+        type: character varying(64)
+    - dec_def_key_:
+        not_null: true
+        type: character varying(255)
+    - dec_def_name_:
+        type: character varying(255)
+    - proc_def_key_:
+        type: character varying(255)
+    - proc_def_id_:
+        type: character varying(64)
+    - proc_inst_id_:
+        type: character varying(64)
+    - case_def_key_:
+        type: character varying(255)
+    - case_def_id_:
+        type: character varying(64)
+    - case_inst_id_:
+        type: character varying(64)
+    - act_inst_id_:
+        type: character varying(64)
+    - act_id_:
+        type: character varying(255)
+    - eval_time_:
+        not_null: true
+        type: timestamp without time zone
+    - collect_value_:
+        type: double precision
+    - user_id_:
+        type: character varying(255)
+    - root_dec_inst_id_:
+        type: character varying(64)
+    - dec_req_id_:
+        type: character varying(64)
+    - dec_req_key_:
+        type: character varying(255)
+    - tenant_id_:
+        type: character varying(64)
+    indexes:
+      act_idx_hi_dec_inst_act:
+        keys:
+        - act_id_
+      act_idx_hi_dec_inst_act_inst:
+        keys:
+        - act_inst_id_
+      act_idx_hi_dec_inst_ci:
+        keys:
+        - case_inst_id_
+      act_idx_hi_dec_inst_id:
+        keys:
+        - dec_def_id_
+      act_idx_hi_dec_inst_key:
+        keys:
+        - dec_def_key_
+      act_idx_hi_dec_inst_pi:
+        keys:
+        - proc_inst_id_
+      act_idx_hi_dec_inst_req_id:
+        keys:
+        - dec_req_id_
+      act_idx_hi_dec_inst_req_key:
+        keys:
+        - dec_req_key_
+      act_idx_hi_dec_inst_root_id:
+        keys:
+        - root_dec_inst_id_
+      act_idx_hi_dec_inst_tenant_id:
+        keys:
+        - tenant_id_
+      act_idx_hi_dec_inst_time:
+        keys:
+        - eval_time_
+    owner: camunda
+    primary_key:
+      act_hi_decinst_pkey:
+        columns:
+        - id_
+  table act_hi_detail:
+    columns:
+    - id_:
+        not_null: true
+        type: character varying(64)
+    - type_:
+        not_null: true
+        type: character varying(255)
+    - proc_def_key_:
+        type: character varying(255)
+    - proc_def_id_:
+        type: character varying(64)
+    - proc_inst_id_:
+        type: character varying(64)
+    - execution_id_:
+        type: character varying(64)
+    - case_def_key_:
+        type: character varying(255)
+    - case_def_id_:
+        type: character varying(64)
+    - case_inst_id_:
+        type: character varying(64)
+    - case_execution_id_:
+        type: character varying(64)
+    - task_id_:
+        type: character varying(64)
+    - act_inst_id_:
+        type: character varying(64)
+    - var_inst_id_:
+        type: character varying(64)
+    - name_:
+        not_null: true
+        type: character varying(255)
+    - var_type_:
+        type: character varying(64)
+    - rev_:
+        type: integer
+    - time_:
+        not_null: true
+        type: timestamp without time zone
+    - bytearray_id_:
+        type: character varying(64)
+    - double_:
+        type: double precision
+    - long_:
+        type: bigint
+    - text_:
+        type: character varying(4000)
+    - text2_:
+        type: character varying(4000)
+    - sequence_counter_:
+        type: bigint
+    - tenant_id_:
+        type: character varying(64)
+    - operation_id_:
+        type: character varying(64)
+    indexes:
+      act_idx_hi_detail_act_inst:
+        keys:
+        - act_inst_id_
+      act_idx_hi_detail_bytear:
+        keys:
+        - bytearray_id_
+      act_idx_hi_detail_case_exec:
+        keys:
+        - case_execution_id_
+      act_idx_hi_detail_case_inst:
+        keys:
+        - case_inst_id_
+      act_idx_hi_detail_name:
+        keys:
+        - name_
+      act_idx_hi_detail_proc_def_key:
+        keys:
+        - proc_def_key_
+      act_idx_hi_detail_proc_inst:
+        keys:
+        - proc_inst_id_
+      act_idx_hi_detail_task_id:
+        keys:
+        - task_id_
+      act_idx_hi_detail_tenant_id:
+        keys:
+        - tenant_id_
+      act_idx_hi_detail_time:
+        keys:
+        - time_
+    owner: camunda
+    primary_key:
+      act_hi_detail_pkey:
+        columns:
+        - id_
+  table act_hi_ext_task_log:
+    columns:
+    - id_:
+        not_null: true
+        type: character varying(64)
+    - timestamp_:
+        not_null: true
+        type: timestamp without time zone
+    - ext_task_id_:
+        not_null: true
+        type: character varying(64)
+    - retries_:
+        type: integer
+    - topic_name_:
+        type: character varying(255)
+    - worker_id_:
+        type: character varying(255)
+    - priority_:
+        default: '0'
+        not_null: true
+        type: bigint
+    - error_msg_:
+        type: character varying(4000)
+    - error_details_id_:
+        type: character varying(64)
+    - act_id_:
+        type: character varying(255)
+    - act_inst_id_:
+        type: character varying(64)
+    - execution_id_:
+        type: character varying(64)
+    - proc_inst_id_:
+        type: character varying(64)
+    - proc_def_id_:
+        type: character varying(64)
+    - proc_def_key_:
+        type: character varying(255)
+    - tenant_id_:
+        type: character varying(64)
+    - state_:
+        type: integer
+    indexes:
+      act_hi_ext_task_log_proc_def_key:
+        keys:
+        - proc_def_key_
+      act_hi_ext_task_log_procdef:
+        keys:
+        - proc_def_id_
+      act_hi_ext_task_log_procinst:
+        keys:
+        - proc_inst_id_
+      act_hi_ext_task_log_tenant_id:
+        keys:
+        - tenant_id_
+      act_idx_hi_exttasklog_errordet:
+        keys:
+        - error_details_id_
+    owner: camunda
+    primary_key:
+      act_hi_ext_task_log_pkey:
+        columns:
+        - id_
+  table act_hi_identitylink:
+    columns:
+    - id_:
+        not_null: true
+        type: character varying(64)
+    - timestamp_:
+        not_null: true
+        type: timestamp without time zone
+    - type_:
+        type: character varying(255)
+    - user_id_:
+        type: character varying(255)
+    - group_id_:
+        type: character varying(255)
+    - task_id_:
+        type: character varying(64)
+    - proc_def_id_:
+        type: character varying(64)
+    - operation_type_:
+        type: character varying(64)
+    - assigner_id_:
+        type: character varying(64)
+    - proc_def_key_:
+        type: character varying(255)
+    - tenant_id_:
+        type: character varying(64)
+    indexes:
+      act_idx_hi_ident_link_task:
+        keys:
+        - task_id_
+      act_idx_hi_ident_lnk_group:
+        keys:
+        - group_id_
+      act_idx_hi_ident_lnk_proc_def_key:
+        keys:
+        - proc_def_key_
+      act_idx_hi_ident_lnk_tenant_id:
+        keys:
+        - tenant_id_
+      act_idx_hi_ident_lnk_user:
+        keys:
+        - user_id_
+    owner: camunda
+    primary_key:
+      act_hi_identitylink_pkey:
+        columns:
+        - id_
+  table act_hi_incident:
+    columns:
+    - id_:
+        not_null: true
+        type: character varying(64)
+    - proc_def_key_:
+        type: character varying(255)
+    - proc_def_id_:
+        type: character varying(64)
+    - proc_inst_id_:
+        type: character varying(64)
+    - execution_id_:
+        type: character varying(64)
+    - create_time_:
+        not_null: true
+        type: timestamp without time zone
+    - end_time_:
+        type: timestamp without time zone
+    - incident_msg_:
+        type: character varying(4000)
+    - incident_type_:
+        not_null: true
+        type: character varying(255)
+    - activity_id_:
+        type: character varying(255)
+    - cause_incident_id_:
+        type: character varying(64)
+    - root_cause_incident_id_:
+        type: character varying(64)
+    - configuration_:
+        type: character varying(255)
+    - incident_state_:
+        type: integer
+    - tenant_id_:
+        type: character varying(64)
+    - job_def_id_:
+        type: character varying(64)
+    indexes:
+      act_idx_hi_incident_proc_def_key:
+        keys:
+        - proc_def_key_
+      act_idx_hi_incident_procinst:
+        keys:
+        - proc_inst_id_
+      act_idx_hi_incident_tenant_id:
+        keys:
+        - tenant_id_
+    owner: camunda
+    primary_key:
+      act_hi_incident_pkey:
+        columns:
+        - id_
+  table act_hi_job_log:
+    columns:
+    - id_:
+        not_null: true
+        type: character varying(64)
+    - timestamp_:
+        not_null: true
+        type: timestamp without time zone
+    - job_id_:
+        not_null: true
+        type: character varying(64)
+    - job_duedate_:
+        type: timestamp without time zone
+    - job_retries_:
+        type: integer
+    - job_priority_:
+        default: '0'
+        not_null: true
+        type: bigint
+    - job_exception_msg_:
+        type: character varying(4000)
+    - job_exception_stack_id_:
+        type: character varying(64)
+    - job_state_:
+        type: integer
+    - job_def_id_:
+        type: character varying(64)
+    - job_def_type_:
+        type: character varying(255)
+    - job_def_configuration_:
+        type: character varying(255)
+    - act_id_:
+        type: character varying(255)
+    - execution_id_:
+        type: character varying(64)
+    - process_instance_id_:
+        type: character varying(64)
+    - process_def_id_:
+        type: character varying(64)
+    - process_def_key_:
+        type: character varying(255)
+    - deployment_id_:
+        type: character varying(64)
+    - sequence_counter_:
+        type: bigint
+    - tenant_id_:
+        type: character varying(64)
+    indexes:
+      act_idx_hi_job_log_ex_stack:
+        keys:
+        - job_exception_stack_id_
+      act_idx_hi_job_log_job_def_id:
+        keys:
+        - job_def_id_
+      act_idx_hi_job_log_proc_def_key:
+        keys:
+        - process_def_key_
+      act_idx_hi_job_log_procdef:
+        keys:
+        - process_def_id_
+      act_idx_hi_job_log_procinst:
+        keys:
+        - process_instance_id_
+      act_idx_hi_job_log_tenant_id:
+        keys:
+        - tenant_id_
+    owner: camunda
+    primary_key:
+      act_hi_job_log_pkey:
+        columns:
+        - id_
+  table act_hi_op_log:
+    columns:
+    - id_:
+        not_null: true
+        type: character varying(64)
+    - deployment_id_:
+        type: character varying(64)
+    - proc_def_id_:
+        type: character varying(64)
+    - proc_def_key_:
+        type: character varying(255)
+    - proc_inst_id_:
+        type: character varying(64)
+    - execution_id_:
+        type: character varying(64)
+    - case_def_id_:
+        type: character varying(64)
+    - case_inst_id_:
+        type: character varying(64)
+    - case_execution_id_:
+        type: character varying(64)
+    - task_id_:
+        type: character varying(64)
+    - job_id_:
+        type: character varying(64)
+    - job_def_id_:
+        type: character varying(64)
+    - batch_id_:
+        type: character varying(64)
+    - user_id_:
+        type: character varying(255)
+    - timestamp_:
+        not_null: true
+        type: timestamp without time zone
+    - operation_type_:
+        type: character varying(64)
+    - operation_id_:
+        type: character varying(64)
+    - entity_type_:
+        type: character varying(30)
+    - property_:
+        type: character varying(64)
+    - org_value_:
+        type: character varying(4000)
+    - new_value_:
+        type: character varying(4000)
+    - tenant_id_:
+        type: character varying(64)
+    indexes:
+      act_idx_hi_op_log_procdef:
+        keys:
+        - proc_def_id_
+      act_idx_hi_op_log_procinst:
+        keys:
+        - proc_inst_id_
+    owner: camunda
+    primary_key:
+      act_hi_op_log_pkey:
+        columns:
+        - id_
+  table act_hi_procinst:
+    columns:
+    - id_:
+        not_null: true
+        type: character varying(64)
+    - proc_inst_id_:
+        not_null: true
+        type: character varying(64)
+    - business_key_:
+        type: character varying(255)
+    - proc_def_key_:
+        type: character varying(255)
+    - proc_def_id_:
+        not_null: true
+        type: character varying(64)
+    - start_time_:
+        not_null: true
+        type: timestamp without time zone
+    - end_time_:
+        type: timestamp without time zone
+    - duration_:
+        type: bigint
+    - start_user_id_:
+        type: character varying(255)
+    - start_act_id_:
+        type: character varying(255)
+    - end_act_id_:
+        type: character varying(255)
+    - super_process_instance_id_:
+        type: character varying(64)
+    - super_case_instance_id_:
+        type: character varying(64)
+    - case_inst_id_:
+        type: character varying(64)
+    - delete_reason_:
+        type: character varying(4000)
+    - tenant_id_:
+        type: character varying(64)
+    - state_:
+        type: character varying(255)
+    indexes:
+      act_idx_hi_pro_i_buskey:
+        keys:
+        - business_key_
+      act_idx_hi_pro_inst_end:
+        keys:
+        - end_time_
+      act_idx_hi_pro_inst_proc_def_key:
+        keys:
+        - proc_def_key_
+      act_idx_hi_pro_inst_tenant_id:
+        keys:
+        - tenant_id_
+    owner: camunda
+    primary_key:
+      act_hi_procinst_pkey:
+        columns:
+        - id_
+    unique_constraints:
+      act_hi_procinst_proc_inst_id__key:
+        columns:
+        - proc_inst_id_
+  table act_hi_taskinst:
+    columns:
+    - id_:
+        not_null: true
+        type: character varying(64)
+    - task_def_key_:
+        type: character varying(255)
+    - proc_def_key_:
+        type: character varying(255)
+    - proc_def_id_:
+        type: character varying(64)
+    - proc_inst_id_:
+        type: character varying(64)
+    - execution_id_:
+        type: character varying(64)
+    - case_def_key_:
+        type: character varying(255)
+    - case_def_id_:
+        type: character varying(64)
+    - case_inst_id_:
+        type: character varying(64)
+    - case_execution_id_:
+        type: character varying(64)
+    - act_inst_id_:
+        type: character varying(64)
+    - name_:
+        type: character varying(255)
+    - parent_task_id_:
+        type: character varying(64)
+    - description_:
+        type: character varying(4000)
+    - owner_:
+        type: character varying(255)
+    - assignee_:
+        type: character varying(255)
+    - start_time_:
+        not_null: true
+        type: timestamp without time zone
+    - end_time_:
+        type: timestamp without time zone
+    - duration_:
+        type: bigint
+    - delete_reason_:
+        type: character varying(4000)
+    - priority_:
+        type: integer
+    - due_date_:
+        type: timestamp without time zone
+    - follow_up_date_:
+        type: timestamp without time zone
+    - tenant_id_:
+        type: character varying(64)
+    indexes:
+      act_idx_hi_task_inst_proc_def_key:
+        keys:
+        - proc_def_key_
+      act_idx_hi_task_inst_tenant_id:
+        keys:
+        - tenant_id_
+      act_idx_hi_taskinst_procinst:
+        keys:
+        - proc_inst_id_
+      act_idx_hi_taskinstid_procinst:
+        keys:
+        - id_
+        - proc_inst_id_
+    owner: camunda
+    primary_key:
+      act_hi_taskinst_pkey:
+        columns:
+        - id_
+  table act_hi_varinst:
+    columns:
+    - id_:
+        not_null: true
+        type: character varying(64)
+    - proc_def_key_:
+        type: character varying(255)
+    - proc_def_id_:
+        type: character varying(64)
+    - proc_inst_id_:
+        type: character varying(64)
+    - execution_id_:
+        type: character varying(64)
+    - act_inst_id_:
+        type: character varying(64)
+    - case_def_key_:
+        type: character varying(255)
+    - case_def_id_:
+        type: character varying(64)
+    - case_inst_id_:
+        type: character varying(64)
+    - case_execution_id_:
+        type: character varying(64)
+    - task_id_:
+        type: character varying(64)
+    - name_:
+        not_null: true
+        type: character varying(255)
+    - var_type_:
+        type: character varying(100)
+    - rev_:
+        type: integer
+    - bytearray_id_:
+        type: character varying(64)
+    - double_:
+        type: double precision
+    - long_:
+        type: bigint
+    - text_:
+        type: character varying(4000)
+    - text2_:
+        type: character varying(4000)
+    - tenant_id_:
+        type: character varying(64)
+    - state_:
+        type: character varying(20)
+    indexes:
+      act_idx_hi_casevar_case_inst:
+        keys:
+        - case_inst_id_
+      act_idx_hi_procvar_name_type:
+        keys:
+        - name_
+        - var_type_
+      act_idx_hi_procvar_proc_inst:
+        keys:
+        - proc_inst_id_
+      act_idx_hi_var_inst_proc_def_key:
+        keys:
+        - proc_def_key_
+      act_idx_hi_var_inst_tenant_id:
+        keys:
+        - tenant_id_
+      act_idx_hi_varinst_bytear:
+        keys:
+        - bytearray_id_
+    owner: camunda
+    primary_key:
+      act_hi_varinst_pkey:
+        columns:
+        - id_
+  table act_id_group:
+    columns:
+    - id_:
+        not_null: true
+        type: character varying(64)
+    - rev_:
+        type: integer
+    - name_:
+        type: character varying(255)
+    - type_:
+        type: character varying(255)
+    owner: camunda
+    primary_key:
+      act_id_group_pkey:
+        columns:
+        - id_
+  table act_id_info:
+    columns:
+    - id_:
+        not_null: true
+        type: character varying(64)
+    - rev_:
+        type: integer
+    - user_id_:
+        type: character varying(64)
+    - type_:
+        type: character varying(64)
+    - key_:
+        type: character varying(255)
+    - value_:
+        type: character varying(255)
+    - password_:
+        type: bytea
+    - parent_id_:
+        type: character varying(255)
+    owner: camunda
+    primary_key:
+      act_id_info_pkey:
+        columns:
+        - id_
+  table act_id_membership:
+    columns:
+    - user_id_:
+        not_null: true
+        type: character varying(64)
+    - group_id_:
+        not_null: true
+        type: character varying(64)
+    foreign_keys:
+      act_fk_memb_group:
+        columns:
+        - group_id_
+        references:
+          columns:
+          - id_
+          schema: public
+          table: act_id_group
+      act_fk_memb_user:
+        columns:
+        - user_id_
+        references:
+          columns:
+          - id_
+          schema: public
+          table: act_id_user
+    indexes:
+      act_idx_memb_group:
+        keys:
+        - group_id_
+      act_idx_memb_user:
+        keys:
+        - user_id_
+    owner: camunda
+    primary_key:
+      act_id_membership_pkey:
+        columns:
+        - user_id_
+        - group_id_
+  table act_id_tenant:
+    columns:
+    - id_:
+        not_null: true
+        type: character varying(64)
+    - rev_:
+        type: integer
+    - name_:
+        type: character varying(255)
+    owner: camunda
+    primary_key:
+      act_id_tenant_pkey:
+        columns:
+        - id_
+  table act_id_tenant_member:
+    columns:
+    - id_:
+        not_null: true
+        type: character varying(64)
+    - tenant_id_:
+        not_null: true
+        type: character varying(64)
+    - user_id_:
+        type: character varying(64)
+    - group_id_:
+        type: character varying(64)
+    foreign_keys:
+      act_fk_tenant_memb:
+        columns:
+        - tenant_id_
+        references:
+          columns:
+          - id_
+          schema: public
+          table: act_id_tenant
+      act_fk_tenant_memb_group:
+        columns:
+        - group_id_
+        references:
+          columns:
+          - id_
+          schema: public
+          table: act_id_group
+      act_fk_tenant_memb_user:
+        columns:
+        - user_id_
+        references:
+          columns:
+          - id_
+          schema: public
+          table: act_id_user
+    indexes:
+      act_idx_tenant_memb:
+        keys:
+        - tenant_id_
+      act_idx_tenant_memb_group:
+        keys:
+        - group_id_
+      act_idx_tenant_memb_user:
+        keys:
+        - user_id_
+    owner: camunda
+    primary_key:
+      act_id_tenant_member_pkey:
+        columns:
+        - id_
+    unique_constraints:
+      act_uniq_tenant_memb_group:
+        columns:
+        - tenant_id_
+        - group_id_
+      act_uniq_tenant_memb_user:
+        columns:
+        - tenant_id_
+        - user_id_
+  table act_id_user:
+    columns:
+    - id_:
+        not_null: true
+        type: character varying(64)
+    - rev_:
+        type: integer
+    - first_:
+        type: character varying(255)
+    - last_:
+        type: character varying(255)
+    - email_:
+        type: character varying(255)
+    - pwd_:
+        type: character varying(255)
+    - salt_:
+        type: character varying(255)
+    - picture_id_:
+        type: character varying(64)
+    owner: camunda
+    primary_key:
+      act_id_user_pkey:
+        columns:
+        - id_
+  table act_re_case_def:
+    columns:
+    - id_:
+        not_null: true
+        type: character varying(64)
+    - rev_:
+        type: integer
+    - category_:
+        type: character varying(255)
+    - name_:
+        type: character varying(255)
+    - key_:
+        not_null: true
+        type: character varying(255)
+    - version_:
+        not_null: true
+        type: integer
+    - deployment_id_:
+        type: character varying(64)
+    - resource_name_:
+        type: character varying(4000)
+    - dgrm_resource_name_:
+        type: character varying(4000)
+    - tenant_id_:
+        type: character varying(64)
+    - history_ttl_:
+        type: integer
+    indexes:
+      act_idx_case_def_tenant_id:
+        keys:
+        - tenant_id_
+    owner: camunda
+    primary_key:
+      act_re_case_def_pkey:
+        columns:
+        - id_
+  table act_re_decision_def:
+    columns:
+    - id_:
+        not_null: true
+        type: character varying(64)
+    - rev_:
+        type: integer
+    - category_:
+        type: character varying(255)
+    - name_:
+        type: character varying(255)
+    - key_:
+        not_null: true
+        type: character varying(255)
+    - version_:
+        not_null: true
+        type: integer
+    - deployment_id_:
+        type: character varying(64)
+    - resource_name_:
+        type: character varying(4000)
+    - dgrm_resource_name_:
+        type: character varying(4000)
+    - dec_req_id_:
+        type: character varying(64)
+    - dec_req_key_:
+        type: character varying(255)
+    - tenant_id_:
+        type: character varying(64)
+    - history_ttl_:
+        type: integer
+    - version_tag_:
+        type: character varying(64)
+    foreign_keys:
+      act_fk_dec_req:
+        columns:
+        - dec_req_id_
+        references:
+          columns:
+          - id_
+          schema: public
+          table: act_re_decision_req_def
+    indexes:
+      act_idx_dec_def_req_id:
+        keys:
+        - dec_req_id_
+      act_idx_dec_def_tenant_id:
+        keys:
+        - tenant_id_
+    owner: camunda
+    primary_key:
+      act_re_decision_def_pkey:
+        columns:
+        - id_
+  table act_re_decision_req_def:
+    columns:
+    - id_:
+        not_null: true
+        type: character varying(64)
+    - rev_:
+        type: integer
+    - category_:
+        type: character varying(255)
+    - name_:
+        type: character varying(255)
+    - key_:
+        not_null: true
+        type: character varying(255)
+    - version_:
+        not_null: true
+        type: integer
+    - deployment_id_:
+        type: character varying(64)
+    - resource_name_:
+        type: character varying(4000)
+    - dgrm_resource_name_:
+        type: character varying(4000)
+    - tenant_id_:
+        type: character varying(64)
+    indexes:
+      act_idx_dec_req_def_tenant_id:
+        keys:
+        - tenant_id_
+    owner: camunda
+    primary_key:
+      act_re_decision_req_def_pkey:
+        columns:
+        - id_
+  table act_re_deployment:
+    columns:
+    - id_:
+        not_null: true
+        type: character varying(64)
+    - name_:
+        type: character varying(255)
+    - deploy_time_:
+        type: timestamp without time zone
+    - source_:
+        type: character varying(255)
+    - tenant_id_:
+        type: character varying(64)
+    indexes:
+      act_idx_deployment_name:
+        keys:
+        - name_
+      act_idx_deployment_tenant_id:
+        keys:
+        - tenant_id_
+    owner: camunda
+    primary_key:
+      act_re_deployment_pkey:
+        columns:
+        - id_
+  table act_re_procdef:
+    columns:
+    - id_:
+        not_null: true
+        type: character varying(64)
+    - rev_:
+        type: integer
+    - category_:
+        type: character varying(255)
+    - name_:
+        type: character varying(255)
+    - key_:
+        not_null: true
+        type: character varying(255)
+    - version_:
+        not_null: true
+        type: integer
+    - deployment_id_:
+        type: character varying(64)
+    - resource_name_:
+        type: character varying(4000)
+    - dgrm_resource_name_:
+        type: character varying(4000)
+    - has_start_form_key_:
+        type: boolean
+    - suspension_state_:
+        type: integer
+    - tenant_id_:
+        type: character varying(64)
+    - version_tag_:
+        type: character varying(64)
+    - history_ttl_:
+        type: integer
+    indexes:
+      act_idx_procdef_deployment_id:
+        keys:
+        - deployment_id_
+      act_idx_procdef_tenant_id:
+        keys:
+        - tenant_id_
+      act_idx_procdef_ver_tag:
+        keys:
+        - version_tag_
+    owner: camunda
+    primary_key:
+      act_re_procdef_pkey:
+        columns:
+        - id_
+  table act_ru_authorization:
+    columns:
+    - id_:
+        not_null: true
+        type: character varying(64)
+    - rev_:
+        not_null: true
+        type: integer
+    - type_:
+        not_null: true
+        type: integer
+    - group_id_:
+        type: character varying(255)
+    - user_id_:
+        type: character varying(255)
+    - resource_type_:
+        not_null: true
+        type: integer
+    - resource_id_:
+        type: character varying(255)
+    - perms_:
+        type: integer
+    indexes:
+      act_idx_auth_group_id:
+        keys:
+        - group_id_
+      act_idx_auth_resource_id:
+        keys:
+        - resource_id_
+    owner: camunda
+    primary_key:
+      act_ru_authorization_pkey:
+        columns:
+        - id_
+    unique_constraints:
+      act_uniq_auth_group:
+        columns:
+        - type_
+        - group_id_
+        - resource_type_
+        - resource_id_
+      act_uniq_auth_user:
+        columns:
+        - type_
+        - user_id_
+        - resource_type_
+        - resource_id_
+  table act_ru_batch:
+    columns:
+    - id_:
+        not_null: true
+        type: character varying(64)
+    - rev_:
+        not_null: true
+        type: integer
+    - type_:
+        type: character varying(255)
+    - total_jobs_:
+        type: integer
+    - jobs_created_:
+        type: integer
+    - jobs_per_seed_:
+        type: integer
+    - invocations_per_job_:
+        type: integer
+    - seed_job_def_id_:
+        type: character varying(64)
+    - batch_job_def_id_:
+        type: character varying(64)
+    - monitor_job_def_id_:
+        type: character varying(64)
+    - suspension_state_:
+        type: integer
+    - configuration_:
+        type: character varying(255)
+    - tenant_id_:
+        type: character varying(64)
+    foreign_keys:
+      act_fk_batch_job_def:
+        columns:
+        - batch_job_def_id_
+        references:
+          columns:
+          - id_
+          schema: public
+          table: act_ru_jobdef
+      act_fk_batch_monitor_job_def:
+        columns:
+        - monitor_job_def_id_
+        references:
+          columns:
+          - id_
+          schema: public
+          table: act_ru_jobdef
+      act_fk_batch_seed_job_def:
+        columns:
+        - seed_job_def_id_
+        references:
+          columns:
+          - id_
+          schema: public
+          table: act_ru_jobdef
+    indexes:
+      act_idx_batch_job_def:
+        keys:
+        - batch_job_def_id_
+      act_idx_batch_monitor_job_def:
+        keys:
+        - monitor_job_def_id_
+      act_idx_batch_seed_job_def:
+        keys:
+        - seed_job_def_id_
+    owner: camunda
+    primary_key:
+      act_ru_batch_pkey:
+        columns:
+        - id_
+  table act_ru_case_execution:
+    columns:
+    - id_:
+        not_null: true
+        type: character varying(64)
+    - rev_:
+        type: integer
+    - case_inst_id_:
+        type: character varying(64)
+    - super_case_exec_:
+        type: character varying(64)
+    - super_exec_:
+        type: character varying(64)
+    - business_key_:
+        type: character varying(255)
+    - parent_id_:
+        type: character varying(64)
+    - case_def_id_:
+        type: character varying(64)
+    - act_id_:
+        type: character varying(255)
+    - prev_state_:
+        type: integer
+    - current_state_:
+        type: integer
+    - required_:
+        type: boolean
+    - tenant_id_:
+        type: character varying(64)
+    foreign_keys:
+      act_fk_case_exe_case_def:
+        columns:
+        - case_def_id_
+        references:
+          columns:
+          - id_
+          schema: public
+          table: act_re_case_def
+      act_fk_case_exe_case_inst:
+        columns:
+        - case_inst_id_
+        references:
+          columns:
+          - id_
+          schema: public
+          table: act_ru_case_execution
+      act_fk_case_exe_parent:
+        columns:
+        - parent_id_
+        references:
+          columns:
+          - id_
+          schema: public
+          table: act_ru_case_execution
+    indexes:
+      act_idx_case_exe_case_def:
+        keys:
+        - case_def_id_
+      act_idx_case_exe_case_inst:
+        keys:
+        - case_inst_id_
+      act_idx_case_exe_parent:
+        keys:
+        - parent_id_
+      act_idx_case_exec_buskey:
+        keys:
+        - business_key_
+      act_idx_case_exec_tenant_id:
+        keys:
+        - tenant_id_
+    owner: camunda
+    primary_key:
+      act_ru_case_execution_pkey:
+        columns:
+        - id_
+  table act_ru_case_sentry_part:
+    columns:
+    - id_:
+        not_null: true
+        type: character varying(64)
+    - rev_:
+        type: integer
+    - case_inst_id_:
+        type: character varying(64)
+    - case_exec_id_:
+        type: character varying(64)
+    - sentry_id_:
+        type: character varying(255)
+    - type_:
+        type: character varying(255)
+    - source_case_exec_id_:
+        type: character varying(64)
+    - standard_event_:
+        type: character varying(255)
+    - source_:
+        type: character varying(255)
+    - variable_event_:
+        type: character varying(255)
+    - variable_name_:
+        type: character varying(255)
+    - satisfied_:
+        type: boolean
+    - tenant_id_:
+        type: character varying(64)
+    foreign_keys:
+      act_fk_case_sentry_case_exec:
+        columns:
+        - case_exec_id_
+        references:
+          columns:
+          - id_
+          schema: public
+          table: act_ru_case_execution
+      act_fk_case_sentry_case_inst:
+        columns:
+        - case_inst_id_
+        references:
+          columns:
+          - id_
+          schema: public
+          table: act_ru_case_execution
+    indexes:
+      act_idx_case_sentry_case_exec:
+        keys:
+        - case_exec_id_
+      act_idx_case_sentry_case_inst:
+        keys:
+        - case_inst_id_
+    owner: camunda
+    primary_key:
+      act_ru_case_sentry_part_pkey:
+        columns:
+        - id_
+  table act_ru_event_subscr:
+    columns:
+    - id_:
+        not_null: true
+        type: character varying(64)
+    - rev_:
+        type: integer
+    - event_type_:
+        not_null: true
+        type: character varying(255)
+    - event_name_:
+        type: character varying(255)
+    - execution_id_:
+        type: character varying(64)
+    - proc_inst_id_:
+        type: character varying(64)
+    - activity_id_:
+        type: character varying(255)
+    - configuration_:
+        type: character varying(255)
+    - created_:
+        not_null: true
+        type: timestamp without time zone
+    - tenant_id_:
+        type: character varying(64)
+    foreign_keys:
+      act_fk_event_exec:
+        columns:
+        - execution_id_
+        references:
+          columns:
+          - id_
+          schema: public
+          table: act_ru_execution
+    indexes:
+      act_idx_event_subscr:
+        keys:
+        - execution_id_
+      act_idx_event_subscr_config_:
+        keys:
+        - configuration_
+      act_idx_event_subscr_evt_name:
+        keys:
+        - event_name_
+      act_idx_event_subscr_tenant_id:
+        keys:
+        - tenant_id_
+    owner: camunda
+    primary_key:
+      act_ru_event_subscr_pkey:
+        columns:
+        - id_
+  table act_ru_execution:
+    columns:
+    - id_:
+        not_null: true
+        type: character varying(64)
+    - rev_:
+        type: integer
+    - proc_inst_id_:
+        type: character varying(64)
+    - business_key_:
+        type: character varying(255)
+    - parent_id_:
+        type: character varying(64)
+    - proc_def_id_:
+        type: character varying(64)
+    - super_exec_:
+        type: character varying(64)
+    - super_case_exec_:
+        type: character varying(64)
+    - case_inst_id_:
+        type: character varying(64)
+    - act_id_:
+        type: character varying(255)
+    - act_inst_id_:
+        type: character varying(64)
+    - is_active_:
+        type: boolean
+    - is_concurrent_:
+        type: boolean
+    - is_scope_:
+        type: boolean
+    - is_event_scope_:
+        type: boolean
+    - suspension_state_:
+        type: integer
+    - cached_ent_state_:
+        type: integer
+    - sequence_counter_:
+        type: bigint
+    - tenant_id_:
+        type: character varying(64)
+    foreign_keys:
+      act_fk_exe_parent:
+        columns:
+        - parent_id_
+        references:
+          columns:
+          - id_
+          schema: public
+          table: act_ru_execution
+      act_fk_exe_procdef:
+        columns:
+        - proc_def_id_
+        references:
+          columns:
+          - id_
+          schema: public
+          table: act_re_procdef
+      act_fk_exe_procinst:
+        columns:
+        - proc_inst_id_
+        references:
+          columns:
+          - id_
+          schema: public
+          table: act_ru_execution
+      act_fk_exe_super:
+        columns:
+        - super_exec_
+        references:
+          columns:
+          - id_
+          schema: public
+          table: act_ru_execution
+    indexes:
+      act_idx_exe_parent:
+        keys:
+        - parent_id_
+      act_idx_exe_procdef:
+        keys:
+        - proc_def_id_
+      act_idx_exe_procinst:
+        keys:
+        - proc_inst_id_
+      act_idx_exe_super:
+        keys:
+        - super_exec_
+      act_idx_exec_buskey:
+        keys:
+        - business_key_
+      act_idx_exec_tenant_id:
+        keys:
+        - tenant_id_
+    owner: camunda
+    primary_key:
+      act_ru_execution_pkey:
+        columns:
+        - id_
+  table act_ru_ext_task:
+    columns:
+    - id_:
+        not_null: true
+        type: character varying(64)
+    - rev_:
+        not_null: true
+        type: integer
+    - worker_id_:
+        type: character varying(255)
+    - topic_name_:
+        type: character varying(255)
+    - retries_:
+        type: integer
+    - error_msg_:
+        type: character varying(4000)
+    - error_details_id_:
+        type: character varying(64)
+    - lock_exp_time_:
+        type: timestamp without time zone
+    - suspension_state_:
+        type: integer
+    - execution_id_:
+        type: character varying(64)
+    - proc_inst_id_:
+        type: character varying(64)
+    - proc_def_id_:
+        type: character varying(64)
+    - proc_def_key_:
+        type: character varying(255)
+    - act_id_:
+        type: character varying(255)
+    - act_inst_id_:
+        type: character varying(64)
+    - tenant_id_:
+        type: character varying(64)
+    - priority_:
+        default: '0'
+        not_null: true
+        type: bigint
+    foreign_keys:
+      act_fk_ext_task_error_details:
+        columns:
+        - error_details_id_
+        references:
+          columns:
+          - id_
+          schema: public
+          table: act_ge_bytearray
+      act_fk_ext_task_exe:
+        columns:
+        - execution_id_
+        references:
+          columns:
+          - id_
+          schema: public
+          table: act_ru_execution
+    indexes:
+      act_idx_ext_task_err_details:
+        keys:
+        - error_details_id_
+      act_idx_ext_task_exec:
+        keys:
+        - execution_id_
+      act_idx_ext_task_priority:
+        keys:
+        - priority_
+      act_idx_ext_task_tenant_id:
+        keys:
+        - tenant_id_
+      act_idx_ext_task_topic:
+        keys:
+        - topic_name_
+    owner: camunda
+    primary_key:
+      act_ru_ext_task_pkey:
+        columns:
+        - id_
+  table act_ru_filter:
+    columns:
+    - id_:
+        not_null: true
+        type: character varying(64)
+    - rev_:
+        not_null: true
+        type: integer
+    - resource_type_:
+        not_null: true
+        type: character varying(255)
+    - name_:
+        not_null: true
+        type: character varying(255)
+    - owner_:
+        type: character varying(255)
+    - query_:
+        not_null: true
+        type: text
+    - properties_:
+        type: text
+    owner: camunda
+    primary_key:
+      act_ru_filter_pkey:
+        columns:
+        - id_
+  table act_ru_identitylink:
+    columns:
+    - id_:
+        not_null: true
+        type: character varying(64)
+    - rev_:
+        type: integer
+    - group_id_:
+        type: character varying(255)
+    - type_:
+        type: character varying(255)
+    - user_id_:
+        type: character varying(255)
+    - task_id_:
+        type: character varying(64)
+    - proc_def_id_:
+        type: character varying(64)
+    - tenant_id_:
+        type: character varying(64)
+    foreign_keys:
+      act_fk_athrz_procedef:
+        columns:
+        - proc_def_id_
+        references:
+          columns:
+          - id_
+          schema: public
+          table: act_re_procdef
+      act_fk_tskass_task:
+        columns:
+        - task_id_
+        references:
+          columns:
+          - id_
+          schema: public
+          table: act_ru_task
+    indexes:
+      act_idx_athrz_procedef:
+        keys:
+        - proc_def_id_
+      act_idx_ident_lnk_group:
+        keys:
+        - group_id_
+      act_idx_ident_lnk_user:
+        keys:
+        - user_id_
+      act_idx_tskass_task:
+        keys:
+        - task_id_
+    owner: camunda
+    primary_key:
+      act_ru_identitylink_pkey:
+        columns:
+        - id_
+  table act_ru_incident:
+    columns:
+    - id_:
+        not_null: true
+        type: character varying(64)
+    - rev_:
+        not_null: true
+        type: integer
+    - incident_timestamp_:
+        not_null: true
+        type: timestamp without time zone
+    - incident_msg_:
+        type: character varying(4000)
+    - incident_type_:
+        not_null: true
+        type: character varying(255)
+    - execution_id_:
+        type: character varying(64)
+    - activity_id_:
+        type: character varying(255)
+    - proc_inst_id_:
+        type: character varying(64)
+    - proc_def_id_:
+        type: character varying(64)
+    - cause_incident_id_:
+        type: character varying(64)
+    - root_cause_incident_id_:
+        type: character varying(64)
+    - configuration_:
+        type: character varying(255)
+    - tenant_id_:
+        type: character varying(64)
+    - job_def_id_:
+        type: character varying(64)
+    foreign_keys:
+      act_fk_inc_cause:
+        columns:
+        - cause_incident_id_
+        references:
+          columns:
+          - id_
+          schema: public
+          table: act_ru_incident
+      act_fk_inc_exe:
+        columns:
+        - execution_id_
+        references:
+          columns:
+          - id_
+          schema: public
+          table: act_ru_execution
+      act_fk_inc_job_def:
+        columns:
+        - job_def_id_
+        references:
+          columns:
+          - id_
+          schema: public
+          table: act_ru_jobdef
+      act_fk_inc_procdef:
+        columns:
+        - proc_def_id_
+        references:
+          columns:
+          - id_
+          schema: public
+          table: act_re_procdef
+      act_fk_inc_procinst:
+        columns:
+        - proc_inst_id_
+        references:
+          columns:
+          - id_
+          schema: public
+          table: act_ru_execution
+      act_fk_inc_rcause:
+        columns:
+        - root_cause_incident_id_
+        references:
+          columns:
+          - id_
+          schema: public
+          table: act_ru_incident
+    indexes:
+      act_idx_inc_causeincid:
+        keys:
+        - cause_incident_id_
+      act_idx_inc_configuration:
+        keys:
+        - configuration_
+      act_idx_inc_exid:
+        keys:
+        - execution_id_
+      act_idx_inc_job_def:
+        keys:
+        - job_def_id_
+      act_idx_inc_procdefid:
+        keys:
+        - proc_def_id_
+      act_idx_inc_procinstid:
+        keys:
+        - proc_inst_id_
+      act_idx_inc_rootcauseincid:
+        keys:
+        - root_cause_incident_id_
+      act_idx_inc_tenant_id:
+        keys:
+        - tenant_id_
+    owner: camunda
+    primary_key:
+      act_ru_incident_pkey:
+        columns:
+        - id_
+  table act_ru_job:
+    columns:
+    - id_:
+        not_null: true
+        type: character varying(64)
+    - rev_:
+        type: integer
+    - type_:
+        not_null: true
+        type: character varying(255)
+    - lock_exp_time_:
+        type: timestamp without time zone
+    - lock_owner_:
+        type: character varying(255)
+    - exclusive_:
+        type: boolean
+    - execution_id_:
+        type: character varying(64)
+    - process_instance_id_:
+        type: character varying(64)
+    - process_def_id_:
+        type: character varying(64)
+    - process_def_key_:
+        type: character varying(255)
+    - retries_:
+        type: integer
+    - exception_stack_id_:
+        type: character varying(64)
+    - exception_msg_:
+        type: character varying(4000)
+    - duedate_:
+        type: timestamp without time zone
+    - repeat_:
+        type: character varying(255)
+    - handler_type_:
+        type: character varying(255)
+    - handler_cfg_:
+        type: character varying(4000)
+    - deployment_id_:
+        type: character varying(64)
+    - suspension_state_:
+        default: '1'
+        not_null: true
+        type: integer
+    - job_def_id_:
+        type: character varying(64)
+    - priority_:
+        default: '0'
+        not_null: true
+        type: bigint
+    - sequence_counter_:
+        type: bigint
+    - tenant_id_:
+        type: character varying(64)
+    foreign_keys:
+      act_fk_job_exception:
+        columns:
+        - exception_stack_id_
+        references:
+          columns:
+          - id_
+          schema: public
+          table: act_ge_bytearray
+    indexes:
+      act_idx_job_exception:
+        keys:
+        - exception_stack_id_
+      act_idx_job_execution_id:
+        keys:
+        - execution_id_
+      act_idx_job_handler:
+        keys:
+        - handler_type_
+        - handler_cfg_
+      act_idx_job_handler_type:
+        keys:
+        - handler_type_
+      act_idx_job_job_def_id:
+        keys:
+        - job_def_id_
+      act_idx_job_procinst:
+        keys:
+        - process_instance_id_
+      act_idx_job_tenant_id:
+        keys:
+        - tenant_id_
+    owner: camunda
+    primary_key:
+      act_ru_job_pkey:
+        columns:
+        - id_
+  table act_ru_jobdef:
+    columns:
+    - id_:
+        not_null: true
+        type: character varying(64)
+    - rev_:
+        type: integer
+    - proc_def_id_:
+        type: character varying(64)
+    - proc_def_key_:
+        type: character varying(255)
+    - act_id_:
+        type: character varying(255)
+    - job_type_:
+        not_null: true
+        type: character varying(255)
+    - job_configuration_:
+        type: character varying(255)
+    - suspension_state_:
+        type: integer
+    - job_priority_:
+        type: bigint
+    - tenant_id_:
+        type: character varying(64)
+    indexes:
+      act_idx_jobdef_proc_def_id:
+        keys:
+        - proc_def_id_
+      act_idx_jobdef_tenant_id:
+        keys:
+        - tenant_id_
+    owner: camunda
+    primary_key:
+      act_ru_jobdef_pkey:
+        columns:
+        - id_
+  table act_ru_meter_log:
+    columns:
+    - id_:
+        not_null: true
+        type: character varying(64)
+    - name_:
+        not_null: true
+        type: character varying(64)
+    - reporter_:
+        type: character varying(255)
+    - value_:
+        type: bigint
+    - timestamp_:
+        type: timestamp without time zone
+    - milliseconds_:
+        default: '0'
+        type: bigint
+    indexes:
+      act_idx_meter_log:
+        keys:
+        - name_
+        - timestamp_
+      act_idx_meter_log_ms:
+        keys:
+        - milliseconds_
+      act_idx_meter_log_name_ms:
+        keys:
+        - name_
+        - milliseconds_
+      act_idx_meter_log_report:
+        keys:
+        - name_
+        - reporter_
+        - milliseconds_
+      act_idx_meter_log_time:
+        keys:
+        - timestamp_
+    owner: camunda
+    primary_key:
+      act_ru_meter_log_pkey:
+        columns:
+        - id_
+  table act_ru_task:
+    columns:
+    - id_:
+        not_null: true
+        type: character varying(64)
+    - rev_:
+        type: integer
+    - execution_id_:
+        type: character varying(64)
+    - proc_inst_id_:
+        type: character varying(64)
+    - proc_def_id_:
+        type: character varying(64)
+    - case_execution_id_:
+        type: character varying(64)
+    - case_inst_id_:
+        type: character varying(64)
+    - case_def_id_:
+        type: character varying(64)
+    - name_:
+        type: character varying(255)
+    - parent_task_id_:
+        type: character varying(64)
+    - description_:
+        type: character varying(4000)
+    - task_def_key_:
+        type: character varying(255)
+    - owner_:
+        type: character varying(255)
+    - assignee_:
+        type: character varying(255)
+    - delegation_:
+        type: character varying(64)
+    - priority_:
+        type: integer
+    - create_time_:
+        type: timestamp without time zone
+    - due_date_:
+        type: timestamp without time zone
+    - follow_up_date_:
+        type: timestamp without time zone
+    - suspension_state_:
+        type: integer
+    - tenant_id_:
+        type: character varying(64)
+    foreign_keys:
+      act_fk_task_case_def:
+        columns:
+        - case_def_id_
+        references:
+          columns:
+          - id_
+          schema: public
+          table: act_re_case_def
+      act_fk_task_case_exe:
+        columns:
+        - case_execution_id_
+        references:
+          columns:
+          - id_
+          schema: public
+          table: act_ru_case_execution
+      act_fk_task_exe:
+        columns:
+        - execution_id_
+        references:
+          columns:
+          - id_
+          schema: public
+          table: act_ru_execution
+      act_fk_task_procdef:
+        columns:
+        - proc_def_id_
+        references:
+          columns:
+          - id_
+          schema: public
+          table: act_re_procdef
+      act_fk_task_procinst:
+        columns:
+        - proc_inst_id_
+        references:
+          columns:
+          - id_
+          schema: public
+          table: act_ru_execution
+    indexes:
+      act_idx_task_assignee:
+        keys:
+        - assignee_
+      act_idx_task_case_def_id:
+        keys:
+        - case_def_id_
+      act_idx_task_case_exec:
+        keys:
+        - case_execution_id_
+      act_idx_task_create:
+        keys:
+        - create_time_
+      act_idx_task_exec:
+        keys:
+        - execution_id_
+      act_idx_task_procdef:
+        keys:
+        - proc_def_id_
+      act_idx_task_procinst:
+        keys:
+        - proc_inst_id_
+      act_idx_task_tenant_id:
+        keys:
+        - tenant_id_
+    owner: camunda
+    primary_key:
+      act_ru_task_pkey:
+        columns:
+        - id_
+  table act_ru_variable:
+    columns:
+    - id_:
+        not_null: true
+        type: character varying(64)
+    - rev_:
+        type: integer
+    - type_:
+        not_null: true
+        type: character varying(255)
+    - name_:
+        not_null: true
+        type: character varying(255)
+    - execution_id_:
+        type: character varying(64)
+    - proc_inst_id_:
+        type: character varying(64)
+    - case_execution_id_:
+        type: character varying(64)
+    - case_inst_id_:
+        type: character varying(64)
+    - task_id_:
+        type: character varying(64)
+    - bytearray_id_:
+        type: character varying(64)
+    - double_:
+        type: double precision
+    - long_:
+        type: bigint
+    - text_:
+        type: character varying(4000)
+    - text2_:
+        type: character varying(4000)
+    - var_scope_:
+        type: character varying(64)
+    - sequence_counter_:
+        type: bigint
+    - is_concurrent_local_:
+        type: boolean
+    - tenant_id_:
+        type: character varying(64)
+    foreign_keys:
+      act_fk_var_bytearray:
+        columns:
+        - bytearray_id_
+        references:
+          columns:
+          - id_
+          schema: public
+          table: act_ge_bytearray
+      act_fk_var_case_exe:
+        columns:
+        - case_execution_id_
+        references:
+          columns:
+          - id_
+          schema: public
+          table: act_ru_case_execution
+      act_fk_var_case_inst:
+        columns:
+        - case_inst_id_
+        references:
+          columns:
+          - id_
+          schema: public
+          table: act_ru_case_execution
+      act_fk_var_exe:
+        columns:
+        - execution_id_
+        references:
+          columns:
+          - id_
+          schema: public
+          table: act_ru_execution
+      act_fk_var_procinst:
+        columns:
+        - proc_inst_id_
+        references:
+          columns:
+          - id_
+          schema: public
+          table: act_ru_execution
+    indexes:
+      act_idx_var_bytearray:
+        keys:
+        - bytearray_id_
+      act_idx_var_case_exe:
+        keys:
+        - case_execution_id_
+      act_idx_var_case_inst_id:
+        keys:
+        - case_inst_id_
+      act_idx_var_exe:
+        keys:
+        - execution_id_
+      act_idx_var_procinst:
+        keys:
+        - proc_inst_id_
+      act_idx_variable_task_id:
+        keys:
+        - task_id_
+      act_idx_variable_tenant_id:
+        keys:
+        - tenant_id_
+    owner: camunda
+    primary_key:
+      act_ru_variable_pkey:
+        columns:
+        - id_
+    unique_constraints:
+      act_uniq_variable:
+        columns:
+        - var_scope_
+        - name_
+

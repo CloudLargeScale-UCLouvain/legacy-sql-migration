@@ -1,0 +1,94 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "camunda-fdw.fullname" . }}-webserver
+  labels:
+    {{- include "camunda-fdw.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "camunda-fdw.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/tier: webserver
+  template:
+    metadata:
+      labels:
+        {{- include "camunda-fdw.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/tier: webserver
+
+    spec:
+    {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+    {{- end }}
+      serviceAccountName: {{ include "camunda-fdw.serviceAccountName" . }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      volumes:
+      - name: config-volume
+        configMap:
+          name: configuration
+          defaultMode: 0744
+      initContainers:
+      - name: init-db
+        image: grosinosky/migration-tenant:camunda-7.8.0
+        command: ["bash", "-c", "/app/init.sh"]
+        env:
+        - name: INFRA_FILE
+          value: infra-k8s.yaml
+        - name: CONFIG_DIRECTORY
+          value: /app/          
+        volumeMounts:
+          - name: config-volume
+            mountPath: /app/infra-k8s.yaml
+            subPath: infra-k8s.yaml
+          - name: config-volume
+            mountPath: /app/init.sh
+            subPath: init.sh
+      containers:
+        - name: {{ .Chart.Name }}-webserver
+          env:
+          - name: JAVA_OPTS
+            value: -Xmx768m -XX:MaxMetaspaceSize=256m -Dtenants={{ .Values.tenantsOrigin }} -Dnb.users={{ .Values.nbUsers }} 
+          - name: DB_DRIVER
+            value: org.postgresql.Driver
+          - name: DB_URL
+            value: jdbc:postgresql://{{ include "camunda-fdw.fullname" . }}-db:5432/camunda
+          - name: DB_USERNAME
+            value: camunda
+          - name: DB_PASSWORD
+            value: camunda          
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}
+          image: "{{ .Values.image.repository }}:{{ .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          ports:
+            - name: http
+              containerPort: 8080
+              protocol: TCP
+          livenessProbe:
+            initialDelaySeconds: 180
+            httpGet:
+              path: /
+              port: http
+            failureThreshold: 5
+            periodSeconds: 30
+            timeoutSeconds: 10                     
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+      {{- if eq .Values.podPlacement true }}      
+      nodeSelector:
+        tier: webserver      
+      {{- end }}    
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+    {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+    {{- end }}
+    {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+    {{- end }}

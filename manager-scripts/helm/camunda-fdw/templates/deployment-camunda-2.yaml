@@ -1,0 +1,72 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "camunda-fdw.fullname" . }}-webserver2
+  labels:
+    {{- include "camunda-fdw.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "camunda-fdw.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/tier: webserver2
+  template:
+    metadata:
+      labels:
+        {{- include "camunda-fdw.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/tier: webserver2
+    spec:
+    {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+    {{- end }}
+      serviceAccountName: {{ include "camunda-fdw.serviceAccountName" . }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      containers:
+        - name: {{ .Chart.Name }}-webserver2
+          env:
+          - name: JAVA_OPTS
+            value: -Xmx768m -XX:MaxMetaspaceSize=256m -Dtenants={{ .Values.tenantsTarget }} -Dnb.users={{ .Values.nbUsers }}
+          - name: DB_DRIVER
+            value: org.postgresql.Driver
+          - name: DB_URL
+            value: jdbc:postgresql://{{ include "camunda-fdw.fullname" . }}-db2:5432/camunda
+          - name: DB_USERNAME
+            value: camunda
+          - name: DB_PASSWORD
+            value: camunda          
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}
+          image: "{{ .Values.image.repository }}:{{ .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          ports:
+            - name: http2
+              containerPort: 8080
+              protocol: TCP
+          livenessProbe:
+            initialDelaySeconds: 180
+            httpGet:
+              path: /
+              port: http2
+            failureThreshold: 5
+            periodSeconds: 30
+            timeoutSeconds: 10                     
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+      {{- if eq .Values.podPlacement true }}      
+      nodeSelector:
+        tier: webserver2
+      {{- end }}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+    {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+    {{- end }}
+    {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+    {{- end }}

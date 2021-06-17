@@ -1,0 +1,100 @@
+metadata:
+  #test
+  infra_file: infra.yaml
+  database_schema_file: db.yaml
+  psql: true
+  tenant:
+    table: m_company
+    identifier: id
+    label: name
+    describe_resource_query: "select distinct c.id, c.name from m_company c join m_company_course cc on c.id = cc.companyid join m_company_users cu on c.id = cu.companyid"
+    tenant_dynamic_tables:
+    - tenants_dependencies:
+        tableName: "*"
+        fields: ['company', 'companyid']
+        subquery: :field IN (:tenantId)
+    - course:
+        tableName: m_course
+        fields: ['id']
+        subquery: :field IN (SELECT courseid FROM m_company_course WHERE companyid = :tenantId)
+    - course_dependencies:
+        tableName: "*"
+        fields: ['course', 'courseid','course_id']
+        subquery: :field IN (SELECT courseid FROM m_company_course WHERE companyid = :tenantId) 
+    - user:
+        tableName: m_user
+        fields: ['id']
+        subquery: :field IN (SELECT userid FROM m_company_users WHERE companyid = :tenantId)
+    - user_dependencies:
+        tableName: "*"
+        fields: ['user', 'userid', 'useridto','useridfrom', 'usermodified', 'requester', 'importer', 'usercreated', 'reviewerid', 'authorid']
+        subquery: :field IN (SELECT userid FROM m_company_users WHERE companyid = :tenantId)
+    - context:
+        tableName: m_context
+        fields: ['instanceid']
+        subquery: (:field IN (SELECT userid FROM m_company_users WHERE companyid = :tenantId) AND contextlevel = 20) OR (:field IN (SELECT courseid FROM m_company_course WHERE companyid = :tenantId) AND contextlevel = 50)
+    - context_dependencies:
+        tableName: "*"
+        fields: ['contextid', 'parentcontextid']
+        subquery: :field IN (SELECT id FROM m_context WHERE (instanceid IN (SELECT userid FROM m_company_users WHERE companyid = :tenantId) AND contextlevel = 20) OR (instanceid IN (SELECT courseid FROM m_company_course WHERE companyid = :tenantId) AND contextlevel = 50))
+    - user_info_field:
+        tableName: m_user_info_field
+        fields: ['id']
+        subquery: :field IN (SELECT fieldid FROM m_user_info_data uid JOIN m_company_users cu ON uid.userid = cu.userid WHERE companyid = :tenantId)
+    - tag_instance:
+        tableName: m_tag_instance
+        fields: ['tagid']
+        subquery: :field IN (SELECT t.id FROM m_tag t JOIN m_company_users cu ON t.userid = cu.userid WHERE companyid = :tenantId)
+    - init:
+        tableName: ["m_repository_instance_config", "m_config_plugins", "m_config", "m_tag_area","m_cache_flags","m_cache_filters"]                    
+    - specific:
+        tableName: ["m_files_reference"]
+    - block_dependencies: 
+        tableName: "*"
+        fields: ['blockinstanceid']
+        subquery: :field IN (SELECT bi.id FROM m_block_instances bi JOIN m_context c ON bi.parentcontextid = c.id WHERE (c.id in (SELECT userid FROM m_company_users WHERE companyid = :tenantId) AND c.contextlevel = 20) OR (c.id IN (SELECT courseid FROM m_company_course WHERE companyid = :tenantId) AND c.contextlevel = 50))
+    - assignments:
+        tableName: "*"
+        fields: ['assignment']
+        subquery: :field IN (SELECT id FROM m_assignment WHERE course IN (SELECT courseid FROM m_company_course WHERE companyid = :tenantId))
+    - data_content:
+        tableName: m_data_content
+        fields: ['recordid']
+        subquery: :field IN (SELECT id FROM m_data_records WHERE userid IN (SELECT userid FROM m_company_users WHERE companyid = :tenantId))
+    - grading_instances:
+        tableName: m_grading_instances
+        fields: ["definitionid"]
+        subquery: :field IN (SELECT id FROM m_grading_definitions WHERE usercreated IN (SELECT userid FROM m_company_users WHERE companyid = :tenantId))
+    - iomad_track_certs:
+        tableName: m_local_iomad_track_certs
+        fields: ["trackid"]
+        subquery: :field IN (SELECT id FROM m_local_iomad_track WHERE userid IN (SELECT userid FROM m_company_users WHERE companyid = :tenantId))        
+    - user_devices_dependencies:
+        tableName: "*"
+        fields: ["userdeviceid"]
+        subquery: :field IN (SELECT id FROM m_user_devices WHERE userid IN (SELECT userid FROM m_company_users WHERE companyid = :tenantId))        
+    - question_dependencies:
+        tableName: "*"
+        fields: ["questionid"]
+        subquery: :field IN (SELECT id FROM m_question WHERE createdby IN (SELECT userid FROM m_company_users WHERE companyid = :tenantId))        
+    - question_attempts_dependencies:
+        tableName: "*"
+        fields: ["attemptstepid"]
+        subquery: :field IN (SELECT id FROM m_question_attempt_steps WHERE userid IN (SELECT userid FROM m_company_users WHERE companyid = :tenantId))        
+    - assessement_dependencies:
+        tableName: "*"
+        fields: ["assessmentid"]
+        subquery: :field IN (SELECT id FROM m_workshop_assessments WHERE reviewerid IN (SELECT userid FROM m_company_users WHERE companyid = :tenantId))        
+    - grading_fillings:
+        tableName: ["m_gradingform_guide_fillings", "m_gradingform_rubric_fillings"]
+        fields: ["instanceid"]
+        subquery: :field IN (SELECT id FROM m_grading_instances WHERE definitionid IN (SELECT id FROM m_grading_definitions WHERE usercreated IN (SELECT userid FROM m_company_users WHERE companyid = :tenantId)))
+    - notifications_dependencies:
+        tableName: ["*"]
+        fields: ["notificationid"]
+        subquery: :field IN (SELECT id FROM m_notifications WHERE useridto IN (SELECT userid FROM m_company_users WHERE companyid = :tenantId))
+    - message_popup:
+        tableName: message_popup
+        fields: ["messageid"]
+        subquery: :field IN (SELECT id FROM m_message WHERE useridto IN (SELECT userid FROM m_company_users WHERE companyid = :tenantId))
+        

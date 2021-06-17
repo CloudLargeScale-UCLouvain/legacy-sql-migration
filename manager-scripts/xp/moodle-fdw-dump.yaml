@@ -1,0 +1,31 @@
+tests:
+#  - size: 0
+#    nb-users: 100
+#    nb-courses: 1
+#  - size: 0
+#    nb-users: 100
+#    nb-courses: 10
+#  - size: 0
+#    nb-users: 100
+#    nb-courses: 25
+#  - size: 0
+#    nb-users: 100
+#    nb-courses: 50
+#  - size: 0
+#    nb-users: 100
+#    nb-courses: 75
+#  - size: 0
+#    nb-users: 100
+#    nb-courses: 100
+#  - size: 0
+#    nb-users: 100
+#    nb-courses: 250
+  - size: 0
+    nb-users: 100
+    nb-courses: 500
+  - size: 0
+    nb-users: 100
+    nb-courses: 750
+  - size: 0
+    nb-users: 100
+    nb-courses: 1000      

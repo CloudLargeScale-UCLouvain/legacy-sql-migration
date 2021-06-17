@@ -1,0 +1,116 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "moodle-fdw.fullname" . }}-webserver
+  labels:
+    {{- include "moodle-fdw.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "moodle-fdw.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/tier: webserver    
+      zone: dc1      
+  template:
+    metadata:
+      labels:
+        {{- include "moodle-fdw.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/tier: webserver   
+        zone: dc1        
+    spec:
+    {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+    {{- end }}
+      serviceAccountName: {{ include "moodle-fdw.serviceAccountName" . }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      volumes:
+      - name: config-volume
+        configMap:
+          name:  {{ include "moodle-fdw.fullname" . }}-configuration
+          defaultMode: 0744
+      - name: webserver-volume
+        emptyDir: {}    
+      initContainers:
+      - name: init-db
+        image: grosinosky/migration-tenant:iomad-36
+        imagePullPolicy: Always
+        command: ["bash", "-c", "/app/init.sh"]
+        env:
+        - name: INFRA_FILE
+          value: infra-k8s.yaml
+        - name: CONFIG_DIRECTORY
+          value: /app/
+        volumeMounts:
+          - name: config-volume
+            mountPath: /app/config.yaml
+            subPath: config.yaml
+          - name: config-volume
+            mountPath: /app/infra-k8s.yaml
+            subPath: infra-k8s.yaml
+          - name: config-volume
+            mountPath: /app/init.sh
+            subPath: init.sh     
+      - name: get-git-directory
+        image: alpine/git
+        command: ["sh", "-c", "git clone --depth 1 https://github.com/guillaumerosinosky/iomad.git /var/www/html"]
+        volumeMounts:
+        - name: webserver-volume
+          mountPath: /var/www/html        
+      containers:
+        - env:
+          - name: MOODLE_DOCKER_BROWSER
+            value: firefox
+          - name: MOODLE_DOCKER_DBHOST
+            value: {{ include "moodle-fdw.fullname" . }}-db
+          - name: MOODLE_DOCKER_DBNAME
+            value: moodle
+          - name: MOODLE_DOCKER_DBPASS
+            value: m@0dl3ing
+          - name: MOODLE_DOCKER_DBTYPE
+            value: pgsql
+          - name: MOODLE_DOCKER_DBUSER
+            value: moodle      
+          name: {{ .Chart.Name }}-webserver
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}
+          image: "{{ .Values.image.repository }}:{{ .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          ports:
+            - name: http
+              containerPort: 80
+              protocol: TCP
+          livenessProbe:
+            exec:
+              command:
+              - curl
+              - -f
+              - http://localhost:80
+            failureThreshold: 5
+            periodSeconds: 30
+            timeoutSeconds: 10
+          volumeMounts:
+          - mountPath: /var/www/html
+            name: webserver-volume
+          - name: config-volume
+            mountPath: /var/www/html/config.php
+            subPath: config.php               
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+      {{- if eq .Values.podPlacement true }}      
+      nodeSelector:
+        tier: webserver      
+      {{- end }}      
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+    {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+    {{- end }}
+    {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+    {{- end }}

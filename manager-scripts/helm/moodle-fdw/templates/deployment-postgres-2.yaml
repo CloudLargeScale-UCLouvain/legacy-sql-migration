@@ -1,0 +1,72 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "moodle-fdw.fullname" . }}-db2
+  labels:
+    {{- include "moodle-fdw.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "moodle-fdw.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/tier: db2   
+      zone: dc2
+  template:
+    metadata:
+      labels:
+        {{- include "moodle-fdw.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/tier: db2     
+        zone: dc2           
+    spec:
+    {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+    {{- end }}
+      serviceAccountName: {{ include "moodle-fdw.serviceAccountName" . }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      containers:
+        - name: {{ .Chart.Name }}-db2
+          env:
+          - name: POSTGRES_DB
+            value: moodle
+          - name: POSTGRES_PASSWORD
+            value: m@0dl3ing
+          - name: POSTGRES_USER
+            value: moodle
+
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}
+          image: postgres:11
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          ports:
+            - name: http-db2
+              containerPort: 5432
+              protocol: TCP
+          livenessProbe:
+            exec:
+              command:
+              - /bin/sh
+              - -c
+              - /usr/bin/pg_isready -U moodle
+            failureThreshold: 5
+            periodSeconds: 30
+            timeoutSeconds: 10
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+      {{- if eq .Values.podPlacement true }}       
+      nodeSelector:
+        tier: db2      
+      {{- end }}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+    {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+    {{- end }}
+    {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+    {{- end }}

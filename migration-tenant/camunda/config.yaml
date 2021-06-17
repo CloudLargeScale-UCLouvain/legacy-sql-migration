@@ -1,0 +1,15 @@
+metadata:
+  infra_file: infra-intern.yaml
+  database_schema_file: db.yaml
+  psql: true
+  tenant:
+    table: act_id_tenant
+    identifier: id_
+    label: name_
+    describe_resource_query: "select distinct t.id_ as id, t.name_ as name from act_id_tenant t join act_id_tenant_member tm on t.id_ = tm.tenant_id_"
+    tenant_dynamic_tables:
+      - tenant:
+          tableName: "*"
+          except: ['act_ge_bytearray', 'act_re_deployment']
+          fields: ['tenant_id_']
+          subquery: ":field IN (':tenantId')"      

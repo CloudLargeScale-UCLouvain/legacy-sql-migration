@@ -1,0 +1,27 @@
+ref:
+  config:
+    user: "camunda"
+    server: "psql1"
+    dbname: camunda
+    host: "localhost"
+    internal_host: "camunda-fdw-db-ref"
+    port: 5434
+    password: "camunda"
+db1:
+  config:
+    user: camunda 
+    server: psql1 
+    dbname: camunda
+    host: localhost
+    internal_host: "camunda-fdw-db"
+    port: 5433
+    password: camunda
+db2:
+  config:
+    user: camunda 
+    server: psql1 
+    dbname: camunda
+    host: localhost
+    internal_host: "camunda-fdw-db2" 
+    port: 5435
+    password: camunda

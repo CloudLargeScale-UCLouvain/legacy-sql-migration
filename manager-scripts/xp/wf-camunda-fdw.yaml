@@ -1,0 +1,785 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Workflow
+metadata:
+  generateName: camunda-fdw-
+  namespace: default  
+spec:
+  entrypoint: loop-testplan
+
+  volumes:                 
+  - name: git
+    persistentVolumeClaim:
+      claimName: git  
+  - name: workdir
+    emptyDir: {}
+
+  arguments:
+    artifacts:
+    - name: live-migrations
+      git:
+        repo: https://github.com/CloudLargeScale-UCLouvain/LiveMigrations
+    - name: iomad
+      git: 
+        repo: https://github.com/guillaumerosinosky/iomad.git
+
+    parameters:
+    - name: xp-name
+      value: camunda-fdw
+    - name: chart
+      value: camunda-fdw
+    - name: pod-placement
+      value: "false"
+    - name: chaos
+      value: "false"
+    - name: remove-chart
+      value: "true"
+      
+  templates:
+##########################################################################
+# test global loop
+  - name: loop-testplan
+    parallelism: 1
+    dag: 
+      tasks:
+      - name: save-manager-scripts
+        template: volume-manager-scripts
+
+      - name: testplan 
+        dependencies: [save-manager-scripts]
+        template: generate-testplans
+        arguments:
+          parameters:
+          - name: nb-users
+            value: "{{item.nb-users}}"
+          - name: loops-init
+            value: "{{item.loops-init}}"
+          - name: duration
+            value: "{{item.duration}}"
+          - name: quantity-tenant-migr
+            value: "{{item.quantity-tenant-migr}}"
+          - name: quantity-tenant-origin
+            value: "{{item.quantity-tenant-origin}}"
+          - name: quantity-tenant-target
+            value: "{{item.quantity-tenant-target}}"
+          - name: throughput-init
+            value: "{{item.throughput-init}}" 
+          - name: throughput-origin
+            value: "{{item.throughput-origin}}" 
+          - name: throughput-migr1
+            value: "{{item.throughput-migr1}}" 
+          - name: throughput-migr2
+            value: "{{item.throughput-migr2}}" 
+          - name: throughput-target
+            value: "{{item.throughput-target}}" 
+          - name: wait-before-migration
+            value: "{{item.wait-before-migration}}"
+          - name: name
+            value: "{{item.name}}"
+          artifacts:
+          - name: manager-scripts
+            from: "{{tasks.save-manager-scripts.outputs.artifacts.manager-scripts}}"
+          - name: jmx-testplan
+            from: "{{tasks.save-manager-scripts.outputs.artifacts.jmx-testplan}}"            
+          - name: infra-migration 
+            raw:
+              data: |
+                ref:
+                  config:
+                    user: "camunda"
+                    server: "psql1"
+                    dbname: "camunda"
+                    host: "{{workflow.parameters.chart}}-db-ref"
+                    internal_host: "{{workflow.parameters.chart}}-db-ref"
+                    port: 5432
+                    password: "camunda"
+                db1:
+                  config:
+                    user: camunda 
+                    server: psql1 
+                    dbname: camunda 
+                    host: "{{workflow.parameters.chart}}-db"
+                    internal_host: "{{workflow.parameters.chart}}-db"
+                    port: 5432
+                    password: camunda
+                db2:
+                  config:
+                    user: camunda 
+                    server: psql1 
+                    dbname: camunda 
+                    host: "{{workflow.parameters.chart}}-db2"
+                    internal_host: "{{workflow.parameters.chart}}-db2"
+                    port: 5432
+                    password: camunda         
+        withParam: "{{workflow.parameters.tests}}"
+
+##########################################################################
+# Test plan generation
+  - name: generate-testplans
+    inputs:
+      parameters:
+      - name: nb-users
+      - name: loops-init
+      - name: duration 
+      - name: quantity-tenant-migr
+      - name: quantity-tenant-origin
+      - name: quantity-tenant-target                
+      - name: throughput-init 
+      - name: throughput-origin       
+      - name: throughput-migr1       
+      - name: throughput-migr2       
+      - name: throughput-target 
+      - name: wait-before-migration    
+      - name: name
+      artifacts:
+      - name: infra-migration
+      - name: manager-scripts   
+      - name: jmx-testplan
+    dag: 
+      tasks:
+      - name: xp-name
+        arguments:
+          parameters:
+          - name: duration
+            value: "{{inputs.parameters.duration}}"
+          - name: nb-users
+            value: "{{inputs.parameters.nb-users}}"
+          - name: loops-init
+            value: "{{inputs.parameters.loops-init}}"
+          - name: name
+            value: "{{inputs.parameters.name}}"
+          - name: quantity-tenant-migr
+            value: "{{inputs.parameters.quantity-tenant-migr}}"          
+          - name: quantity-tenant-origin
+            value: "{{inputs.parameters.quantity-tenant-origin}}"          
+          - name: quantity-tenant-target    
+            value: "{{inputs.parameters.quantity-tenant-target}}"          
+        template: generate-xp-name
+            
+      - name: get-tenants
+        dependencies: [xp-name]      
+        template: get-tenants
+        arguments: 
+          parameters:    
+          - name: duration
+            value: "{{inputs.parameters.duration}}"          
+          - name: quantity-tenant-migr
+            value: "{{inputs.parameters.quantity-tenant-migr}}"          
+          - name: quantity-tenant-origin
+            value: "{{inputs.parameters.quantity-tenant-origin}}"          
+          - name: quantity-tenant-target    
+            value: "{{inputs.parameters.quantity-tenant-target}}"          
+          - name: loops-init
+            value: "{{inputs.parameters.loops-init}}"
+
+      - name: install-camunda
+        dependencies: [get-tenants]        
+        template: helm-install-camunda
+        arguments:
+          parameters:
+          - name: origin-tenants
+            value: "{{tasks.get-tenants.outputs.parameters.origin-tenants}}"
+          - name: target-tenants
+            value: "{{tasks.get-tenants.outputs.parameters.target-tenants}}"
+          - name: nb-users
+            value: "{{inputs.parameters.nb-users}}"
+          artifacts:
+          - name: manager-scripts
+            from: "{{inputs.artifacts.manager-scripts}}"
+
+      - name: init-data
+        dependencies: [install-camunda]
+        template: launch-jmeter
+        arguments:
+          parameters:
+          - name: host
+            value: "{{item.host}}"
+          - name: nb-users
+            value: "{{inputs.parameters.nb-users}}"
+          - name: loops
+            value: "{{inputs.parameters.loops-init}}"
+          - name: tenant
+            value: "{{item.tenant}}"
+          - name: xp-name
+            value: "{{tasks.xp-name.outputs.result}}"
+          - name: step
+            value: "init"  
+          - name: throughput          
+            value: "{{inputs.parameters.throughput-init}}"            
+
+          artifacts:
+          - name: jmx-testplan
+            from: "{{inputs.artifacts.jmx-testplan}}"
+        withParam: "{{tasks.get-tenants.outputs.parameters.tenant-list}}"        
+
+      - name: launch-test-origin
+        dependencies: [init-data]
+        template: launch-jmeter
+        arguments:
+          parameters:
+          - name: host
+            value: "{{workflow.parameters.chart}}-webserver"
+          - name: nb-users
+            value: "{{inputs.parameters.nb-users}}"
+          - name: loops
+            value: "-1"
+          - name: tenant
+            value: "{{item.tenant}}"
+          - name: xp-name
+            value: "{{tasks.xp-name.outputs.result}}"
+          - name: step
+            value: "test"
+          - name: throughput          
+            value: "{{inputs.parameters.throughput-origin}}"            
+          artifacts:
+          - name: jmx-testplan
+            from: "{{inputs.artifacts.jmx-testplan}}"
+        withParam: "{{tasks.get-tenants.outputs.parameters.tenant-list-origin}}"        
+
+      - name: launch-test-target
+        dependencies: [init-data]
+        template: launch-jmeter
+        arguments:
+          parameters:
+          - name: host
+            value: "{{workflow.parameters.chart}}-webserver2"
+          - name: nb-users
+            value: "{{inputs.parameters.nb-users}}"
+          - name: loops
+            value: "-1"
+          - name: tenant
+            value: "{{item.tenant}}"
+          - name: xp-name
+            value: "{{tasks.xp-name.outputs.result}}"
+          - name: step
+            value: "test"
+          - name: throughput          
+            value: "{{inputs.parameters.throughput-target}}"            
+          artifacts:
+          - name: jmx-testplan
+            from: "{{inputs.artifacts.jmx-testplan}}"
+        withParam: "{{tasks.get-tenants.outputs.parameters.tenant-list-target}}"        
+
+      - name: launch-test-migr
+        dependencies: [init-data]
+        template: launch-jmeter
+        arguments:
+          parameters:
+          - name: host
+            value: "{{workflow.parameters.chart}}-webserver"
+          - name: nb-users
+            value: "{{inputs.parameters.nb-users}}"
+          - name: loops
+            value: "-1"
+          - name: tenant
+            value: "{{item.tenant}}"
+          - name: xp-name
+            value: "{{tasks.xp-name.outputs.result}}"
+          - name: step
+            value: "test"
+          - name: throughput          
+            value: "{{inputs.parameters.throughput-migr1}}"            
+          artifacts:
+          - name: jmx-testplan
+            from: "{{inputs.artifacts.jmx-testplan}}"
+        withParam: "{{tasks.get-tenants.outputs.parameters.tenant-list-migr}}"        
+
+      - name: activate-chaos
+        arguments:
+          artifacts:
+          - name: manager-scripts
+            from: "{{inputs.artifacts.manager-scripts}}"        
+        dependencies: [init-data]
+        template: launch-chaos
+        when: "\"{{workflow.parameters.chaos}}\" == \"true\""
+
+      - name: migrate-tenant
+        dependencies: [launch-test-migr]
+        template: migrate
+        arguments:
+          parameters:
+          - name: xp-name
+            value: "{{tasks.xp-name.outputs.result}}"            
+          - name: tenant
+            value: "{{item.tenant}}"
+          - name: origin_db
+            value: "db1"
+          - name: target_db
+            value: "db2"
+          - name: step
+            value: "migration"    
+          - name: host        
+            value: "{{workflow.parameters.chart}}-webserver2"
+          - name: wait-before-migration          
+            value: "{{inputs.parameters.wait-before-migration}}" 
+          artifacts:
+          - name: infra-migration
+            from: "{{inputs.artifacts.infra-migration}}"  
+        withParam: "{{tasks.get-tenants.outputs.parameters.tenant-list-migr}}"
+
+      - name: launch-test-migr2
+        dependencies: [migrate-tenant]
+        template: launch-jmeter
+        arguments:
+          parameters:
+          - name: host
+            value: "{{workflow.parameters.chart}}-webserver2"
+          - name: nb-users
+            value: "{{inputs.parameters.nb-users}}"
+          - name: loops
+            value: "-1"
+          - name: tenant
+            value: "{{item.tenant}}"
+          - name: xp-name
+            value: "{{tasks.xp-name.outputs.result}}"
+          - name: step
+            value: "test"
+          - name: throughput          
+            value: "{{inputs.parameters.throughput-migr2}}"               
+          artifacts:
+          - name: jmx-testplan
+            from: "{{inputs.artifacts.jmx-testplan}}"
+        withParam: "{{tasks.get-tenants.outputs.parameters.tenant-list-migr}}"        
+
+      - name: deactivate-chaos
+        arguments:
+          artifacts:
+          - name: manager-scripts
+            from: "{{inputs.artifacts.manager-scripts}}"        
+        dependencies: [launch-test-migr2, launch-test-target, launch-test-origin]
+        template: delete-chaos
+        when: "\"{{workflow.parameters.chaos}}\" == \"true\""
+
+      - name: merge-results-tests
+        dependencies: [launch-test-migr2, launch-test-target, launch-test-origin]
+        template: merge-results
+        arguments:
+          parameters:  
+          - name: xp-name
+            value: "{{tasks.xp-name.outputs.result}}"           
+          - name: nb-users
+            value: "{{inputs.parameters.nb-users}}"        
+          - name: loops-init
+            value: "{{inputs.parameters.loops-init}}"    
+          - name: duration
+            value: "{{inputs.parameters.duration}}"
+          - name: tenant-list-origin         
+            value: "{{tasks.get-tenants.outputs.parameters.tenant-list-origin}}"
+          - name: tenant-list-migr
+            value: "{{tasks.get-tenants.outputs.parameters.tenant-list-migr}}"
+          - name: tenant-list-target
+            value: "{{tasks.get-tenants.outputs.parameters.tenant-list-target}}"
+
+      - name: uninstall-camunda
+        dependencies: [merge-results-tests]
+        template: helm-uninstall-camunda
+        when: "\"{{workflow.parameters.remove-chart}}\" == \"true\""
+
+##############################################################################
+  - name: generate-xp-name
+    inputs:
+      parameters:      
+      - name: nb-users
+      - name: loops-init
+      - name: duration 
+      - name: quantity-tenant-migr
+      - name: quantity-tenant-origin
+      - name: quantity-tenant-target     
+      - name: name           
+    script:
+      image: python:alpine3.6
+      command: [python]
+      source: |
+        print("{{workflow.parameters.xp-name}}-{{inputs.parameters.name}}")
+
+  - name: volume-manager-scripts
+    script:
+      image: alpine/git
+      volumeMounts:
+      - mountPath: /git
+        name: git 
+      command: [sh]        
+      source: |-
+        git clone --depth 1 https://github.com/guillaumerosinosky/iomad.git /var/www/html        
+    outputs:
+      artifacts:
+      - name: manager-scripts
+        path: /git/manager-scripts
+      - name: jmx-testplan
+        path: /git/camunda/jmeter/camunda.jmx
+#################################
+  - name: helm-uninstall-camunda
+    script:
+      image: alpine/helm
+      command: [sh]    
+      source: |-
+        export XP_NAME={{workflow.parameters.chart}}
+        helm delete $XP_NAME
+  - name: helm-install-camunda
+    inputs:
+      artifacts:
+      - name: manager-scripts
+        path: /git/manager-scripts
+        mode: 0755  
+      parameters:    
+      - name: nb-users
+      - name: origin-tenants  
+      - name: target-tenants  
+    script:
+      image: alpine/helm
+      command: [sh]    
+      source: |-
+        cd /git/manager-scripts/helm/{{workflow.parameters.chart}}
+        export XP_NAME={{workflow.parameters.chart}}
+        helm delete $XP_NAME
+        echo "Launching: helm install $XP_NAME . --set nbUsers={{inputs.parameters.nb-users}} --set tenantsOrigin="{{inputs.parameters.origin-tenants}}" --set tenantsTarget="{{inputs.parameters.target-tenants}}" --set podPlacement={{workflow.parameters.pod-placement}}"
+        helm install $XP_NAME . --set nbUsers={{inputs.parameters.nb-users}} --set tenantsOrigin="{{inputs.parameters.origin-tenants}}" --set tenantsTarget="{{inputs.parameters.target-tenants}}" --set podPlacement={{workflow.parameters.pod-placement}}
+        apk add --update curl 
+        echo ""
+        until `curl -i -L "http://${XP_NAME}-webserver:8080/camunda" |grep "200 OK" >& /tmp/out`; 
+          do echo "'http://${XP_NAME}-webserver:8080/camunda'" && sleep 1;
+        done
+
+  - name: get-tenants
+    inputs: 
+      parameters:    
+      - name: quantity-tenant-migr
+      - name: quantity-tenant-origin
+      - name: quantity-tenant-target    
+      - name: duration
+      - name: loops-init
+    script:
+      image: python:alpine3.6
+      command: [python]
+      source: |
+        import json
+        nb_migr = {{inputs.parameters.quantity-tenant-migr}}
+        nb_origin = {{inputs.parameters.quantity-tenant-origin}}
+        nb_target = {{inputs.parameters.quantity-tenant-target}} 
+        duration = {{inputs.parameters.duration}}
+        loops_init = {{inputs.parameters.loops-init}}
+
+        origin_tenants = []
+        target_tenants = []
+
+        ar_migr = []
+        for i in range(0, nb_migr):
+          m = {
+              "tenant": "tenant{}".format(i),
+              "duration": duration * 3,
+              "loops-init": loops_init,
+              "host":"{{workflow.parameters.chart}}-webserver"
+          }
+          ar_migr.append(m)
+          origin_tenants.append(m["tenant"])
+
+        ar_origin = []
+        for i in range(nb_migr, nb_migr + nb_origin):
+          m = {
+              "tenant": "tenant{}".format(i),
+              "duration": duration,
+              "loops-init": loops_init,
+              "host":"{{workflow.parameters.chart}}-webserver"
+          }    
+          ar_origin.append(m)
+          origin_tenants.append(m["tenant"])
+
+        ar_target = []
+        for i in range(nb_migr + nb_origin, nb_migr + nb_origin + nb_target):
+          m = {
+              "tenant": "tenant{}".format(i),
+              "duration": duration * 3,
+              "loops-init": loops_init,
+              "host":"{{workflow.parameters.chart}}-webserver2"
+          }    
+          ar_target.append(m)
+          target_tenants.append(m["tenant"])
+
+        with open('/origin-tenants.csv', 'w') as outfile:
+          outfile.write("\\,".join(origin_tenants))
+        with open('/target-tenants.csv', 'w') as outfile:
+          outfile.write("\\,".join(target_tenants))
+
+        with open('/tenant-list-migr.json', 'w') as outfile:
+          json.dump(ar_migr, outfile)
+        with open('/tenant-list-origin.json', 'w') as outfile:
+          json.dump(ar_origin, outfile)
+        with open('/tenant-list-target.json', 'w') as outfile:
+          json.dump(ar_target, outfile)
+        with open('/tenant-list.json', 'w') as outfile:
+          json.dump(ar_migr + ar_origin + ar_target, outfile)          
+    outputs:
+      parameters:
+      - name: origin-tenants
+        valueFrom:
+          path: /origin-tenants.csv
+      - name: target-tenants
+        valueFrom:
+          path: /target-tenants.csv
+      - name: tenant-list-migr
+        valueFrom:
+          path: /tenant-list-migr.json  
+      - name: tenant-list-origin
+        valueFrom:
+          path: /tenant-list-origin.json  
+      - name: tenant-list-target
+        valueFrom:
+          path: /tenant-list-target.json  
+      - name: tenant-list
+        valueFrom:
+          path: /tenant-list.json  
+
+  - name: launch-jmeter
+    inputs: 
+      parameters:
+      - name: host
+      - name: nb-users
+      - name: tenant
+      - name: loops
+      - name: xp-name
+      - name: step   
+      - name: throughput           
+      artifacts:
+      - name: jmx-testplan
+        path: /jmeter/camunda.jmx
+    nodeSelector:
+      tier: load
+    script:
+      image: grosinosky/jmeter-moodle:0.0.1
+      command: ["bash"]
+      source: |-
+        cd /apache-jmeter-5.2.1
+        jmeter -n -j jmeter.log -t /jmeter/camunda.jmx -Jhost={{inputs.parameters.host}} \
+          -Jusers={{inputs.parameters.nb-users}} \
+          -Jloops={{inputs.parameters.loops}}  \
+          -Jduration=600 \
+          -Jkey={{inputs.parameters.step}} -Jtenant={{inputs.parameters.tenant}} \
+          -J "load_profile={{inputs.parameters.throughput}}"
+        pwd
+        cat /apache-jmeter-5.2.1/results/data.csv
+    outputs:
+      artifacts:
+      - name: results
+        path: /apache-jmeter-5.2.1/results/data.csv
+        archive:
+          none: {}        
+        s3: 
+          endpoint: manager-minio.manager:9000  
+          bucket: experiments
+          insecure: true
+          key: "{{workflow.name}}/{{inputs.parameters.xp-name}}/{{inputs.parameters.step}}-{{inputs.parameters.tenant}}-{{inputs.parameters.host}}/data.csv"
+          accessKeySecret:
+            name: manager-minio
+            key: accesskey
+          secretKeySecret:
+            name: manager-minio
+            key: secretkey
+
+  - name: launch-chaos
+    nodeSelector:
+      tier: manager
+    inputs:
+      artifacts:
+      - name: manager-scripts
+        path: /git/manager-scripts
+        mode: 0755        
+    script:
+      image: alpine/k8s:1.15.11
+      command: [sh]    
+      source: |-
+        cd /git/manager-scripts/xp/xp4-latency/chaos
+        sleep 90
+        ls
+        kubectl apply -f .
+        
+  - name: delete-chaos
+    nodeSelector:
+      tier: manager
+    inputs:
+      artifacts:
+      - name: manager-scripts
+        path: /git/manager-scripts
+        mode: 0755        
+    script:
+      image: alpine/k8s:1.15.11
+      command: [sh]    
+      source: |-
+        cd /git/manager-scripts/xp/xp4-latency/chaos
+        ls
+        # temporary disable
+        #kubectl delete -f .
+
+
+  - name: migrate
+    inputs:
+      parameters:
+      - name: origin_db
+      - name: tenant
+      - name: target_db
+      - name: xp-name   
+      - name: step   
+      - name: host    
+      - name: wait-before-migration                    
+      artifacts:
+      - name: infra-migration 
+        path: /app/infra-k8s.yaml
+    nodeSelector:
+      tier: db-ref
+    script:
+      image: grosinosky/migration-tenant:camunda-7.8.0
+      imagePullPolicy: Always
+      env:
+        - name: INFRA_FILE
+          value: infra-k8s.yaml
+        - name: TENANT
+          value: "{{inputs.parameters.tenant}}"
+        - name: ORIGIN_DB
+          value: "{{inputs.parameters.origin_db}}"
+        - name: TARGET_DB
+          value: "{{inputs.parameters.target_db}}"
+      command: [bash]
+      source: |-
+        echo "Wait for {{inputs.parameters.wait-before-migration}} seconds"
+        sleep {{inputs.parameters.wait-before-migration}}
+        echo "Migration $TENANT to $TARGET_DB"
+        python migrate.py --describe
+        start=$(date +%s.%N)
+        python migrate.py --migrate={{inputs.parameters.tenant}},{{inputs.parameters.origin_db}},{{inputs.parameters.target_db}}
+        end=$(date +%s.%N)    
+        runtime=$(python -c "print(${end} - ${start})")        
+        echo "start,end,duration" > /migration.csv
+        echo "$start,$end,$runtime" >> /migration.csv
+    outputs:
+      artifacts:
+      - name: results
+        path: /migration.csv
+        archive:
+          none: {}        
+        s3: 
+          endpoint: manager-minio.manager:9000  
+          bucket: experiments
+          insecure: true
+          key: "{{workflow.name}}/{{inputs.parameters.xp-name}}/migration.csv"
+          accessKeySecret:
+            name: manager-minio
+            key: accesskey
+          secretKeySecret:
+            name: manager-minio
+            key: secretkey
+
+  - name: merge-results
+    inputs: 
+      parameters:
+      - name: nb-users
+      - name: loops-init 
+      - name: duration
+      - name: tenant-list-origin
+      - name: tenant-list-migr
+      - name: tenant-list-target    
+      - name: xp-name                
+    script:
+      env:
+        - name: LOOPS-INIT
+          value: "{{inputs.parameters.loops-init}}"
+        - name: USERS
+          value: "{{inputs.parameters.nb-users}}"   
+        - name: TENANT-ORIGIN
+          value: "{{inputs.parameters.tenant-list-origin}}" 
+        - name: TENANT-MIGR
+          value: "{{inputs.parameters.tenant-list-migr}}" 
+        - name: TENANT-TARGET
+          value: "{{inputs.parameters.tenant-list-target}}" 
+      image: grosinosky/python-script:0.0.1
+      imagePullPolicy: Always      
+      command: [python]    
+      source: |-
+        import json
+        import os
+        import sys
+        import io 
+        import psycopg2
+
+        workflow_name="{{workflow.name}}"
+        db_name = "{{workflow.parameters.xp-name}}-{{workflow.name}}"
+        xp_name="{{inputs.parameters.xp-name}}"
+
+        sql = "select distinct p.business_key_ as business_key, "\
+          "p.id_ as p_id, p.start_time_ as p_start, p.end_time_ as p_end, p.duration_ as p_duration, "\
+          "t.id_ as t_id, t.start_time_ as t_start, t.end_time_ as t_end, t.duration_ as t_duration "\
+          "from act_hi_taskinst t "\
+          "join act_hi_procinst p on t.proc_inst_id_ = p.id_ "\
+          "where t.tenant_id_ = '{}' "\
+          "and p.business_key_ is not null"
+        tenants_origin = json.loads(os.environ["TENANT-ORIGIN"])
+        tenants_migr = json.loads(os.environ["TENANT-MIGR"])
+        tenants_target = json.loads(os.environ["TENANT-TARGET"])
+
+        print(tenants_origin)
+        #["camunda-fdw-db.default", "camunda-fdw-db2.default"]
+        from pymongo import MongoClient
+        mongo_client = MongoClient('manager-mongo-manager.manager', 27017)
+        db = mongo_client[db_name]
+        coll = db[xp_name + "-process"]
+
+        m = {
+          "{}-db.default".format("{{workflow.parameters.chart}}"):tenants_origin + tenants_target,
+          "{}-db2.default".format("{{workflow.parameters.chart}}"):tenants_migr + tenants_target 
+        }
+        for host in m.keys():
+          for tenant in m[host]:
+            print("Extract data from {}/{}".format(host, tenant["tenant"]))
+            conn = psycopg2.connect("dbname='camunda' user='camunda' host='{}' password='camunda'".format(host))
+            cur = conn.cursor()
+            cur.execute(sql.format(tenant["tenant"]))
+            outputquery = "COPY ({0}) TO STDOUT WITH CSV HEADER".format(sql.format(tenant["tenant"]))
+            string = ""
+            csv_filename = "db_{}_{}.csv".format(host, tenant["tenant"])  # Consider creating temp file, look URL below
+            with open(csv_filename, 'w') as outfile:
+                cur.copy_expert(outputquery, outfile)
+
+            import pandas as pd
+            parse_dates = ["p_start", "p_end", "t_start", "t_end"]
+            data = pd.read_csv(csv_filename, sep=",", parse_dates=parse_dates)
+            print(data)
+            data["tenant"] = tenant["tenant"]
+            data["host"] = host.split(".")[0]
+            data["duration"] = tenant["duration"]
+            data["loops-init"] = tenant["loops-init"]
+            data["nb-users"] = {{inputs.parameters.nb-users}}
+            records = json.loads(data.T.to_json()).values()
+            if len(records) > 0:
+              coll.insert(records)       
+
+        import minio
+        from minio import Minio
+        minio_client = Minio('manager-minio.manager:9000', access_key="AKIAIOSFODNN7EXAMPLE", secret_key="wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY", secure=False)
+        
+        # jmeter results 
+        db = mongo_client[db_name]
+        coll = db[xp_name]        
+        # generate list for minio key reconstitution
+        m = {
+          "{}-webserver".format("{{workflow.parameters.chart}}"):tenants_origin + tenants_migr,
+          "{}-webserver2".format("{{workflow.parameters.chart}}"):tenants_migr + tenants_target 
+        }
+
+        for host in m.keys():
+          for tenant in m[host]:
+            directory = "{{workflow.name}}/{}/test-{}-{}/data.csv".format(xp_name, tenant["tenant"], host)
+            print("Extract data from {}/{} : {}".format(host, tenant["tenant"], directory))
+            print(minio_client.fget_object('experiments', directory, '/tmp/data.csv'))
+            data = pd.read_csv("/tmp/data.csv")
+            data["host"] = host
+            data["tenant"] = tenant["tenant"]
+            records = json.loads(data.T.to_json()).values()
+            coll.insert(records)                    
+        
+        # migration results
+        coll = db[xp_name + "_migr"]
+        try:
+          print(minio_client.fget_object('experiments', "{{workflow.name}}/{{inputs.parameters.xp-name}}/migration.csv", '/tmp/data.csv'))
+          data = pd.read_csv("/tmp/data.csv")
+          records = json.loads(data.T.to_json()).values()
+          coll.insert(records)
+        except minio.error.NoSuchKey as err:
+          print(err)         
+##################################

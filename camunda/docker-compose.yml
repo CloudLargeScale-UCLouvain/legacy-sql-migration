@@ -1,0 +1,133 @@
+version: '2.2'
+services:
+  db-ref:
+    image: postgres
+    environment:
+      - POSTGRES_DB=process-engine
+      - POSTGRES_USER=camunda
+      - POSTGRES_PASSWORD=camunda
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5432"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+  db-1:
+    image: postgres
+    environment:
+      - POSTGRES_DB=process-engine
+      - POSTGRES_USER=camunda
+      - POSTGRES_PASSWORD=camunda
+    links:
+      - db-ref
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5432"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+  db-2:
+    image: postgres
+    environment:
+      - POSTGRES_DB=process-engine
+      - POSTGRES_USER=camunda
+      - POSTGRES_PASSWORD=camunda
+    links:
+      - db-ref
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5432"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+  init-ref:
+    build:
+      context: ./migration-tenant
+      dockerfile: Dockerfile
+    image: migration-tenant:camunda
+    environment:
+      - INIT_PLATFORM=ref
+      - ORIGIN_DB_HOST=db-ref
+      - ORIGIN_DB_NAME=process-engine
+      - ORIGIN_DB_USER=camunda
+      - ORIGIN_DB_PASS=camunda
+      - DESTINATION_DB_HOST=db-1
+      - DESTINATION_DB_NAME=process-engine
+      - DESTINATION_DB_USER=camunda
+      - DESTINATION_DB_PASS=camunda
+    links:
+      - db-ref
+      - db-1
+      - db-2
+  init-db1:
+    build:
+      context: ./migration-tenant
+      dockerfile: Dockerfile
+    image: migration-tenant:camunda
+    environment:
+      - INIT_PLATFORM=db
+      - ORIGIN_DB_HOST=db-ref
+      - ORIGIN_DB_NAME=process-engine
+      - ORIGIN_DB_USER=camunda
+      - ORIGIN_DB_PASS=camunda
+      - DESTINATION_DB_HOST=db-1
+      - DESTINATION_DB_NAME=process-engine
+      - DESTINATION_DB_USER=camunda
+      - DESTINATION_DB_PASS=camunda
+    links:
+      - db-ref
+      - db-1
+      - db-2
+  init-db2:
+    build:
+      context: ./migration-tenant
+      dockerfile: Dockerfile
+    image: migration-tenant:camunda
+    environment:
+      - INIT_PLATFORM=db
+      - ORIGIN_DB_HOST=db-ref
+      - ORIGIN_DB_NAME=process-engine
+      - ORIGIN_DB_USER=camunda
+      - ORIGIN_DB_PASS=camunda
+      - DESTINATION_DB_HOST=db-2
+      - DESTINATION_DB_NAME=process-engine
+      - DESTINATION_DB_USER=camunda
+      - DESTINATION_DB_PASS=camunda
+    links:
+      - db-ref
+      - db-1
+      - db-2
+    depends_on:
+      - init-db1
+  camunda-1:
+    build:
+      context: ./camunda-bpm-platform
+      dockerfile: Dockerfile
+    image: camunda/camunda-bpm-platform:tomcat-7.8.0-fdw
+    environment:
+      - DB_DRIVER=org.postgresql.Driver
+      - DB_URL=jdbc:postgresql://db-1:5432/process-engine
+      - DB_USERNAME=camunda
+      - DB_PASSWORD=camunda
+      - WAIT_FOR=db-1:5432
+    links:
+      - db-ref
+      - db-1
+    depends_on:
+      - init-db1
+    ports:
+      - "8081:8080"
+
+  camunda-2:
+    image: camunda/camunda-bpm-platform:tomcat-7.8.0-fdw
+    environment:
+      - DB_DRIVER=org.postgresql.Driver
+      - DB_URL=jdbc:postgresql://db-2:5432/process-engine
+      - DB_USERNAME=camunda
+      - DB_PASSWORD=camunda
+      - WAIT_FOR=db-2:5432
+    links:
+      - db-ref
+      - db-2
+    depends_on:
+      - init-db2
+      - camunda-1
+    ports:
+      - "8082:8080"

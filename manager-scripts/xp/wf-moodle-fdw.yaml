@@ -1,0 +1,1131 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Workflow
+metadata:
+  generateName: moodle-fdw-
+  namespace: default
+spec:
+  entrypoint: loop-testplan
+  nodeSelector:
+    tier: manager
+  volumes:                 
+  - name: git
+    persistentVolumeClaim:
+      claimName: git  
+  - name: moodle-www  
+    persistentVolumeClaim:
+      claimName: moodle-www   
+  - name: workdir
+    emptyDir: {}
+
+  arguments:
+    artifacts:
+    - name: live-migrations
+      git:
+        repo: https://github.com/CloudLargeScale-UCLouvain/LiveMigrations
+    - name: iomad
+      git: 
+        repo: https://github.com/guillaumerosinosky/iomad.git
+    parameters:
+    - name: xp-name
+      value: moodle-fdw
+    - name: pod-placement
+      value: "false"
+    - name: chaos
+      value: "false"
+    - name: remove-chart
+      value: "true"
+    - name: config-migration
+      value: "xp/config-migration-moodle.yaml"
+
+  templates:
+##########################################################################
+# test global loop
+  - name: loop-testplan
+    parallelism: 1
+    dag: 
+      tasks:
+      - name: save-manager-scripts
+        template: volume-manager-scripts
+
+      - name: testplan 
+        dependencies: [save-manager-scripts]
+        template: generate-testplans
+        arguments:
+          parameters:
+          - name: throughput-init
+            value: "{{item.throughput-init}}" 
+          - name: throughput-origin
+            value: "{{item.throughput-origin}}" 
+          - name: throughput-migr1
+            value: "{{item.throughput-migr1}}" 
+          - name: throughput-migr2
+            value: "{{item.throughput-migr2}}" 
+          - name: throughput-target
+            value: "{{item.throughput-target}}" 
+          - name: wait-before-migration
+            value: "{{item.wait-before-migration}}"
+          - name: size
+            value: "{{item.size}}"
+          - name: nb-users
+            value: "{{item.nb-users}}"
+          - name: nb-courses
+            value: "{{item.nb-courses}}"
+          - name: duration
+            value: "{{item.duration}}"
+          - name: quantity-tenant-migr
+            value: "{{item.quantity-tenant-migr}}"
+          - name: quantity-tenant-origin
+            value: "{{item.quantity-tenant-origin}}"
+          - name: quantity-tenant-target
+            value: "{{item.quantity-tenant-target}}"                     
+          - name: name
+            value: "{{item.name}}"                     
+          artifacts:
+          - name: manager-scripts
+            from: "{{tasks.save-manager-scripts.outputs.artifacts.manager-scripts}}"
+          - name: empty-dump
+            from: "{{tasks.save-manager-scripts.outputs.artifacts.empty-dump}}"
+          - name: iomad-www
+            from: "{{tasks.save-manager-scripts.outputs.artifacts.iomad-www}}"
+          - name: sql-migr
+            raw:
+              data: |
+                  select tenant, course, order_course, 'migr' as location from  (select com.id as tenant, cou.shortname as course, rank() OVER (PARTITION BY com.shortname ORDER BY cou.shortname DESC) as order_course from m_company com  join m_company_course cc on com.id = cc.companyid join m_course cou on cc.courseid = cou.id) t 
+                  where t.order_course <= 1  limit $QTY_MIGR
+          - name: sql-origin
+            raw:
+              data: |
+                  select tenant, course, order_course, 'origin' as location from  (select com.id as tenant, cou.shortname as course, rank() OVER (PARTITION BY com.shortname ORDER BY cou.shortname DESC) as order_course from m_company com  join m_company_course cc on com.id = cc.companyid join m_course cou on cc.courseid = cou.id) t 
+                  where t.order_course <= 1  limit $QTY_ORIGIN offset $QTY_MIGR
+          - name: sql-target
+            raw:
+              data: | 
+                  select tenant, course, order_course, 'target' as location from  (select com.id as tenant, cou.shortname as course, rank() OVER (PARTITION BY com.shortname ORDER BY cou.shortname DESC) as order_course from m_company com  join m_company_course cc on com.id = cc.companyid join m_course cou on cc.courseid = cou.id) t 
+                  where t.order_course <= 1  limit $QTY_TARGET offset $(($QTY_ORIGIN + $QTY_MIGR))
+          - name: infra-migration 
+            raw:
+              data: |
+                ref:
+                  config:
+                    user: "moodle"
+                    server: "psql1"
+                    dbname: "moodle"
+                    host: "{{workflow.parameters.chart}}-db-ref"
+                    internal_host: "{{workflow.parameters.chart}}-db-ref"
+                    port: 5432
+                    password: "m@0dl3ing"
+                db1:
+                  config:
+                    user: moodle 
+                    server: psql1 
+                    dbname: moodle 
+                    host: {{workflow.parameters.chart}}-db 
+                    internal_host: {{workflow.parameters.chart}}-db 
+                    port: 5432
+                    password: m@0dl3ing 
+                db2:
+                  config:
+                    user: moodle 
+                    server: psql1 
+                    dbname: moodle 
+                    host: {{workflow.parameters.chart}}-db2
+                    internal_host: {{workflow.parameters.chart}}-db2 
+                    port: 5432
+                    password: m@0dl3ing           
+          - name: config-migration
+            from: "{{tasks.save-manager-scripts.outputs.artifacts.config-migration}}"
+        withParam: "{{workflow.parameters.tests}}"
+##########################################################################
+  - name: generate-testplan
+    parallelism: 1
+    inputs:
+      parameters:
+      - name: courses-list
+      - name: size
+      - name: nb-users
+      - name: nb-courses
+      - name: duration
+      - name: xp-name 
+    steps: 
+    - - name: generate-jmeter-test
+        template: generate-jmeter-test-from-json
+        arguments:
+          parameters:
+          - name: xp-name
+            value: "{{inputs.parameters.xp-name}}"
+          - name: size
+            value: "{{inputs.parameters.size}}"        
+          - name: nb-users
+            value: "{{inputs.parameters.nb-users}}"        
+          - name: nb-courses
+            value: "{{inputs.parameters.nb-courses}}"    
+          - name: course
+            value: "{{item.course}}"
+          - name: tenant
+            value: "{{item.tenant}}"
+          - name: duration
+            value: "{{inputs.parameters.duration}}"          
+        withParam: "{{inputs.parameters.courses-list}}"
+##########################################################################
+# Test plan generation
+  - name: generate-testplans
+    inputs:
+      parameters:
+      - name: size
+      - name: nb-users
+      - name: nb-courses
+      - name: duration
+      - name: quantity-tenant-migr
+      - name: quantity-tenant-origin
+      - name: quantity-tenant-target    
+      - name: throughput-init 
+      - name: throughput-origin       
+      - name: throughput-migr1       
+      - name: throughput-migr2       
+      - name: throughput-target 
+      - name: wait-before-migration  
+      - name: name              
+      artifacts:
+      - name: infra-migration
+      - name: config-migration
+      - name: manager-scripts   
+      - name: empty-dump  
+      - name: iomad-www  
+      - name: sql-migr                         
+      - name: sql-origin                         
+      - name: sql-target                         
+    dag: 
+      tasks:
+      - name: xp-name
+        template: generate-xp-name
+        arguments:
+          parameters:
+          - name: nb-users
+            value: "{{inputs.parameters.nb-users}}"
+          - name: nb-courses
+            value: "{{inputs.parameters.nb-courses}}"
+          - name: duration
+            value: "{{inputs.parameters.duration}}"
+          - name: size
+            value: "{{inputs.parameters.size}}" 
+          - name: name
+            value: "{{inputs.parameters.name}}"             
+          - name: quantity-tenant-migr
+            value: "{{inputs.parameters.quantity-tenant-migr}}"          
+          - name: quantity-tenant-origin
+            value: "{{inputs.parameters.quantity-tenant-origin}}"          
+          - name: quantity-tenant-target    
+            value: "{{inputs.parameters.quantity-tenant-target}}"          
+
+      - name: install-moodle
+        dependencies: [xp-name]
+        template: helm-install-moodle-fdw
+        arguments:
+          parameters:
+          - name: size
+            value: "{{inputs.parameters.size}}"        
+          - name: nb-users
+            value: "{{inputs.parameters.nb-users}}"        
+          - name: nb-courses
+            value: "{{inputs.parameters.nb-courses}}"  
+          - name: test-all
+            value: "dump/{{workflow.parameters.xp-name}}/{{workflow.parameters.xp-name}}-{{inputs.parameters.size}}-{{inputs.parameters.nb-users}}-{{inputs.parameters.nb-courses}}-1.sql"
+          artifacts:
+          - name: manager-scripts
+            from: "{{inputs.artifacts.manager-scripts}}"  
+      - name: source-moodle-fdw 
+        dependencies: [install-moodle]
+        template: source-dump-fdw                
+        arguments:
+          parameters:
+          - name: xp-name
+            value: "{{tasks.xp-name.outputs.result}}"
+          - name: size
+            value: "{{inputs.parameters.size}}"        
+          - name: nb-users
+            value: "{{inputs.parameters.nb-users}}"        
+          - name: nb-courses
+            value: "{{inputs.parameters.nb-courses}}"    
+          - name: test-all
+            value: "dump/{{workflow.parameters.chart}}/moodle-{{inputs.parameters.size}}-{{inputs.parameters.nb-users}}-{{inputs.parameters.nb-courses}}-1.sql"
+          artifacts:
+          - name: infra-migration 
+            from: "{{inputs.artifacts.infra-migration}}"    
+          - name: config-migration 
+            from: "{{inputs.artifacts.config-migration}}"    
+          - name: dump1
+            archive:
+              none: {}        
+            s3: 
+              endpoint: manager-minio.manager:9000
+              bucket: experiments
+              insecure: true
+              key: "dump/moodle/moodle-{{inputs.parameters.size}}-{{inputs.parameters.nb-users}}-{{inputs.parameters.nb-courses}}-1.sql"
+              accessKeySecret:
+                name: manager-minio
+                key: accesskey
+              secretKeySecret:
+                name: manager-minio
+                key: secretkey
+        when: "\"{{workflow.parameters.chart}}\" == \"moodle-fdw\""
+      - name: source-moodle
+        dependencies: [install-moodle]
+        template: source-dump                
+        arguments:
+          parameters:
+          - name: size
+            value: "{{inputs.parameters.size}}"        
+          - name: nb-users
+            value: "{{inputs.parameters.nb-users}}"        
+          - name: nb-courses
+            value: "{{inputs.parameters.nb-courses}}"    
+          - name: test-all
+            value: "dump/{{workflow.parameters.chart}}/{{workflow.parameters.chart}}-{{inputs.parameters.size}}-{{inputs.parameters.nb-users}}-{{inputs.parameters.nb-courses}}-1.sql"
+          artifacts:
+          - name: infra-migration 
+            from: "{{inputs.artifacts.infra-migration}}"    
+          - name: dump1
+            archive:
+              none: {}        
+            s3: 
+              endpoint: manager-minio.manager:9000  
+              bucket: experiments
+              insecure: true
+              key: "dump/{{workflow.parameters.chart}}/{{workflow.parameters.chart}}-{{inputs.parameters.size}}-{{inputs.parameters.nb-users}}-{{inputs.parameters.nb-courses}}-1.sql"
+              accessKeySecret:
+                name: manager-minio
+                key: accesskey
+              secretKeySecret:
+                name: manager-minio
+                key: secretkey
+        when: "\"{{workflow.parameters.chart}}\" == \"moodle\""
+
+      - name: get-courses
+        dependencies: [source-moodle, source-moodle-fdw]
+        template: get-courses-from-db
+        arguments:
+          parameters:
+          - name: quantity-tenant-migr
+            value: "{{inputs.parameters.quantity-tenant-migr}}"          
+          - name: quantity-tenant-origin
+            value: "{{inputs.parameters.quantity-tenant-origin}}"          
+          - name: quantity-tenant-target    
+            value: "{{inputs.parameters.quantity-tenant-target}}"               
+          artifacts:
+          - name: sql-origin
+            from: "{{inputs.artifacts.sql-origin}}"  
+          - name: sql-migr
+            from: "{{inputs.artifacts.sql-migr}}"  
+          - name: sql-target
+            from: "{{inputs.artifacts.sql-target}}"  
+
+      - name: generate-jmeter-test
+        dependencies: [get-courses]
+        template: generate-testplan
+        arguments:
+          parameters:
+          - name: xp-name
+            value: "{{tasks.xp-name.outputs.result}}" 
+          - name: duration
+            value: "{{inputs.parameters.duration}}"            
+          - name: size
+            value: "{{inputs.parameters.size}}"        
+          - name: nb-users
+            value: "{{inputs.parameters.nb-users}}"        
+          - name: nb-courses
+            value: "{{inputs.parameters.nb-courses}}"    
+          - name: courses-list
+            value: "{{tasks.get-courses.outputs.parameters.courses-list}}"
+
+      - name: launch-test-origin
+        dependencies: [generate-jmeter-test]
+        template: launch-jmeter
+        arguments:
+          parameters:
+          - name: xp-name
+            value: "{{tasks.xp-name.outputs.result}}" 
+          - name: size
+            value: "{{inputs.parameters.size}}"        
+          - name: nb-users
+            value: "{{inputs.parameters.nb-users}}"        
+          - name: nb-courses
+            value: "{{inputs.parameters.nb-courses}}"    
+          - name: course
+            value: "{{item.course}}"
+          - name: tenant
+            value: "{{item.tenant}}"  
+          - name: throughput          
+            value: "{{inputs.parameters.throughput-origin}}"   
+          - name: host
+            value: "{{workflow.parameters.chart}}-webserver"
+          - name: web-port
+            value: "80"  
+          - name: zone
+            value: "client1"
+        withParam: "{{tasks.get-courses.outputs.parameters.courses-list-origin}}"
+
+      - name: launch-test-migr
+        dependencies: [generate-jmeter-test]
+        template: launch-jmeter
+        arguments:
+          parameters:
+          - name: xp-name
+            value: "{{tasks.xp-name.outputs.result}}" 
+          - name: size
+            value: "{{inputs.parameters.size}}"        
+          - name: nb-users
+            value: "{{inputs.parameters.nb-users}}"        
+          - name: nb-courses
+            value: "{{inputs.parameters.nb-courses}}"    
+          - name: course
+            value: "{{item.course}}"
+          - name: tenant
+            value: "{{item.tenant}}"            
+          - name: throughput          
+            value: "{{inputs.parameters.throughput-migr1}}"
+          - name: host
+            value: "{{workflow.parameters.chart}}-webserver"          
+          - name: web-port
+            value: "80"  
+          - name: zone
+            value: "client1"            
+        withParam: "{{tasks.get-courses.outputs.parameters.courses-list-migr}}"
+
+      - name: launch-test-target
+        dependencies: [generate-jmeter-test]
+        template: launch-jmeter
+        arguments:
+          parameters:
+          - name: xp-name
+            value: "{{tasks.xp-name.outputs.result}}" 
+          - name: size
+            value: "{{inputs.parameters.size}}"        
+          - name: nb-users
+            value: "{{inputs.parameters.nb-users}}"        
+          - name: nb-courses
+            value: "{{inputs.parameters.nb-courses}}"    
+          - name: course
+            value: "{{item.course}}"
+          - name: tenant
+            value: "{{item.tenant}}"            
+          - name: throughput          
+            value: "{{inputs.parameters.throughput-target}}" 
+          - name: host
+            value: "{{workflow.parameters.chart}}-webserver2"
+          - name: web-port
+            value: "80"  
+          - name: zone
+            value: "client2"            
+        withParam: "{{tasks.get-courses.outputs.parameters.courses-list-target}}"
+
+      - name: activate-chaos
+        arguments:
+          artifacts:
+          - name: manager-scripts
+            from: "{{inputs.artifacts.manager-scripts}}"        
+        dependencies: [generate-jmeter-test]
+        template: launch-chaos
+        when: "\"{{workflow.parameters.chaos}}\" == \"true\""
+
+      - name: migrate-tenant
+        dependencies: [launch-test-migr]
+        template: migrate
+        arguments:
+          parameters:
+          - name: xp-name
+            value: "{{tasks.xp-name.outputs.result}}" 
+          - name: size
+            value: "{{inputs.parameters.size}}"        
+          - name: nb-users
+            value: "{{inputs.parameters.nb-users}}"        
+          - name: nb-courses
+            value: "{{inputs.parameters.nb-courses}}"    
+          - name: tenant
+            value: "{{item.tenant}}"            
+          - name: origin_db
+            value: "db1"
+          - name: target_db
+            value: "db2"
+          - name: wait-before-migration          
+            value: "{{inputs.parameters.wait-before-migration}}"             
+          artifacts:
+          - name: infra-migration
+            from: "{{inputs.artifacts.infra-migration}}"    
+          - name: config-migration
+            from: "{{inputs.artifacts.config-migration}}"    
+          
+        withParam: "{{tasks.get-courses.outputs.parameters.courses-list-migr}}"
+
+      - name: launch-test-migr2
+        dependencies: [migrate-tenant]
+        template: launch-jmeter
+        arguments:
+          parameters:
+          - name: xp-name
+            value: "{{tasks.xp-name.outputs.result}}" 
+          - name: size
+            value: "{{inputs.parameters.size}}"        
+          - name: nb-users
+            value: "{{inputs.parameters.nb-users}}"        
+          - name: nb-courses
+            value: "{{inputs.parameters.nb-courses}}"    
+          - name: course
+            value: "{{item.course}}"
+          - name: tenant
+            value: "{{item.tenant}}"            
+          - name: throughput          
+            value: "{{inputs.parameters.throughput-migr2}}"     
+          - name: host
+            value: "{{workflow.parameters.chart}}-webserver2"
+          - name: web-port
+            value: "80"  
+          - name: zone
+            value: "client2"            
+        withParam: "{{tasks.get-courses.outputs.parameters.courses-list-migr}}"
+
+      - name: deactivate-chaos
+        arguments:
+          artifacts:
+          - name: manager-scripts
+            from: "{{inputs.artifacts.manager-scripts}}"        
+        dependencies: [launch-test-migr2, launch-test-target, launch-test-origin]
+        template: delete-chaos
+        when: "\"{{workflow.parameters.chaos}}\" == \"true\""
+
+      - name: merge-results-tests
+        dependencies: [launch-test-migr2, launch-test-target, launch-test-origin]
+        template: merge-results
+        arguments:
+          parameters:
+          - name: xp-name
+            value: "{{tasks.xp-name.outputs.result}}" 
+          - name: size
+            value: "{{inputs.parameters.size}}"        
+          - name: nb-users
+            value: "{{inputs.parameters.nb-users}}"        
+          - name: nb-courses
+            value: "{{inputs.parameters.nb-courses}}"    
+          - name: courses-origin
+            value: "{{tasks.get-courses.outputs.parameters.courses-list-origin}}"
+          - name: courses-migr
+            value: "{{tasks.get-courses.outputs.parameters.courses-list-migr}}"
+          - name: courses-target
+            value: "{{tasks.get-courses.outputs.parameters.courses-list-target}}"
+
+      - name: uninstall-moodle
+        dependencies: [merge-results-tests]
+        template: helm-uninstall-moodle
+        when: "\"{{workflow.parameters.remove-chart}}\" == \"true\""
+
+##############################################################################
+  - name: generate-xp-name
+    inputs:
+      parameters:      
+      - name: nb-users
+      - name: nb-courses
+      - name: duration 
+      - name: size          
+      - name: name
+    script:
+      image: python:alpine3.6
+      command: [python]
+      source: |
+        print("{{workflow.parameters.xp-name}}-{{inputs.parameters.name}}")
+
+  - name: volume-manager-scripts
+    script:
+      image: alpine/git
+      volumeMounts:
+      - mountPath: /git
+        name: git 
+      command: [sh]        
+      source: |-
+        git clone --depth 1 https://github.com/guillaumerosinosky/iomad.git /var/www/html        
+        cat /git/manager-scripts/{{workflow.parameters.config-migration}} > /config-migration.yaml
+    outputs:
+      artifacts:
+      - name: manager-scripts
+        path: /git/manager-scripts
+      - name: empty-dump
+        path: /git/iomad/dump_db_empty.sql
+      - name: iomad-www
+        path: /var/www/html
+      - name: config-migration
+        path: /config-migration.yaml
+
+#################################
+  - name: helm-uninstall-moodle
+    script:
+      image: alpine/helm
+      command: [sh]    
+      source: |-
+        export XP_NAME={{workflow.parameters.chart}}
+        helm delete $XP_NAME
+    
+  - name: helm-install-moodle-fdw
+    inputs:
+      artifacts:
+      - name: manager-scripts
+        path: /git/manager-scripts
+        mode: 0755  
+      parameters:
+      - name: size
+      - name: nb-users
+      - name: nb-courses
+      - name: test-all      
+    script:
+      image: alpine/helm
+      command: [sh]    
+      source: |-
+        cd /git/manager-scripts/helm/{{workflow.parameters.chart}}
+        export XP_NAME={{workflow.parameters.chart}}
+        if [[ -z "{{workflow.parameters.config-migration}}" ]]; then
+          echo "" > /config-migration.yaml
+        else
+          cat /git/manager-scripts/{{workflow.parameters.config-migration}} > /git/manager-scripts/helm/{{workflow.parameters.chart}}/config-migration.yaml
+        fi
+        helm delete $XP_NAME    
+        echo "Launching: helm install $XP_NAME . --set databaseLogall={{workflow.parameters.logall}} --set podPlacement={{workflow.parameters.pod-placement}}"    
+        helm install $XP_NAME . --set databaseLogall={{workflow.parameters.logall}} --set podPlacement={{workflow.parameters.pod-placement}} 
+        apk add --update curl 
+        echo ""
+        until `curl -i -L "http://${XP_NAME}-webserver/login/index.php" |grep "200 OK" >& /tmp/out`; 
+          do echo "'http://${XP_NAME}-webserver/login/index.php'" && sleep 1;
+        done
+##################################
+  - name: source-dump
+    inputs:
+      parameters:
+      - name: size
+      - name: nb-users
+      - name: nb-courses
+      artifacts:
+      - name: dump1
+        path: /dump1.sql
+    script:
+      image: grosinosky/migration-tenant:iomad-36 
+      command: [bash]
+      source: | 
+        export PGPASSWORD=m@0dl3ing
+        while ! pg_isready -h {{workflow.parameters.chart}}-db  > /dev/null 2> /dev/null; do
+          echo "Connecting to {{workflow.parameters.chart}}-db  Failed"
+          sleep 1
+        done  
+        export PGPASSWORD=m@0dl3ing      
+        psql -h {{workflow.parameters.chart}}-db -U moodle moodle < /dump1.sql
+      volumeMounts:                     
+      - name: git
+        mountPath: /dump    
+
+  - name: source-dump-fdw
+    inputs:
+      parameters:
+      - name: size
+      - name: nb-users
+      - name: nb-courses
+      - name: xp-name
+      artifacts:
+      - name: dump1
+        path: /dump1.sql
+      - name: infra-migration 
+        path: /app/infra.yaml
+      - name: config-migration
+        path: /app/config.yaml
+    script:
+      image: grosinosky/migration-tenant:iomad-36 
+      command: [bash]
+      source: | 
+        export PGPASSWORD=m@0dl3ing
+        while ! pg_isready -h {{workflow.parameters.chart}}-db  > /dev/null 2> /dev/null; do
+          echo "Connecting to {{workflow.parameters.chart}}-db  Failed"
+          sleep 1
+        done  
+        while ! pg_isready -h {{workflow.parameters.chart}}-db2  > /dev/null 2> /dev/null; do
+          echo "Connecting to {{workflow.parameters.chart}}-db2  Failed"
+          sleep 1
+        done  
+        while ! pg_isready -h {{workflow.parameters.chart}}-db-ref  > /dev/null 2> /dev/null; do
+          echo "Connecting to {{workflow.parameters.chart}}-db-ref  Failed"
+          sleep 1
+        done  
+        #cat /git/manager-scripts/{{workflow.parameters.config-migration}} > /config-migration.yaml
+        #python3 migrate.py -i
+        export PGPASSWORD=m@0dl3ing      
+        psql -h {{workflow.parameters.chart}}-db-ref -U moodle moodle < /dump1.sql
+        psql -h {{workflow.parameters.chart}}-db -U moodle moodle < /dump1.sql
+        #psql -h {{workflow.parameters.chart}}-db2 -U moodle moodle < /dump2.sql
+        python3 migrate.py -e=table
+      volumeMounts:                     
+      - name: git
+        mountPath: /dump    
+    outputs:
+      artifacts:
+      - name: tables
+        path: /app/export.yaml
+        archive:
+          none: {}        
+        s3: 
+          endpoint: manager-minio.manager:9000  
+          bucket: experiments
+          insecure: true
+          key: "{{workflow.name}}/{{inputs.parameters.xp-name}}/tables.yaml"
+          accessKeySecret:
+            name: manager-minio
+            key: accesskey
+          secretKeySecret:
+            name: manager-minio
+            key: secretkey  
+
+  - name: get-courses-from-db
+    inputs:
+      parameters:
+      - name: quantity-tenant-migr
+      - name: quantity-tenant-origin
+      - name: quantity-tenant-target    
+      artifacts:
+      - name: sql-origin  
+        path: /sql-origin.sql
+      - name: sql-migr  
+        path: /sql-migr.sql
+      - name: sql-target  
+        path: /sql-target.sql
+    script:
+      image: postgres
+      command: [bash]
+      source: |
+        export PGPASSWORD=m@0dl3ing
+        export QTY_MIGR={{inputs.parameters.quantity-tenant-migr}}
+        export QTY_ORIGIN={{inputs.parameters.quantity-tenant-origin}}
+        export QTY_TARGET={{inputs.parameters.quantity-tenant-target}}
+        # migration json
+        export sql_migr=$(eval "echo \"$(cat /sql-migr.sql)\"")
+        psql -h {{workflow.parameters.chart}}-db -U moodle moodle -c "copy(select json_agg(tt) from ($sql_migr) tt)  to stdout" | sed 's/\\n/\n/g' | sed 's/\\N/\[\]/'> /test-migr.json
+        # origin json
+        export sql_origin=$(eval "echo \"$(cat /sql-origin.sql)\"")
+        psql -h {{workflow.parameters.chart}}-db -U moodle moodle -c "copy(select json_agg(tt) from($sql_origin) tt) to stdout" | sed 's/\\n/\n/g' | sed 's/\\N/\[\]/' > /test-origin.json
+        # target Json
+        export sql_target=$(eval "echo \"$(cat /sql-target.sql)\"")
+        psql -h {{workflow.parameters.chart}}-db -U moodle moodle -c "copy(select json_agg(tt) from($sql_target) tt) to stdout" | sed 's/\\n/\n/g' | sed 's/\\N/\[\]/'> /test-target.json
+        # 
+        echo "copy(select json_agg(tt) from (($sql_migr) union all ($sql_origin) union all ($sql_target)) tt) to stdout"
+        psql -h {{workflow.parameters.chart}}-db -U moodle moodle -c "copy(select json_agg(tt) from(($sql_migr) union all ($sql_origin) union all ($sql_target)) tt) to stdout" | sed 's/\\n/\n/g' | sed 's/\\N/\[\]/'> /test-all.json
+        cat /test-all.json
+    outputs:
+      parameters:
+      - name: courses-list-migr
+        valueFrom:
+          path: test-migr.json
+      - name: courses-list-origin
+        valueFrom:
+          path: test-origin.json
+      - name: courses-list-target
+        valueFrom:
+          path: test-target.json
+      - name: courses-list
+        valueFrom:
+          path: test-all.json
+
+  - name: generate-jmeter-test-from-json
+    inputs:
+      parameters:
+      - name: xp-name
+      - name: course
+      - name: tenant
+      - name: size
+      - name: nb-users
+      - name: nb-courses    
+    script:
+      image: moodlehq/moodle-php-apache:7.2
+      volumeMounts:
+      - name: workdir
+        mountPath: /var/www/moodledata
+      - name: moodle-www
+        mountPath: /var/www/html
+      env:
+      - name: MOODLE_DOCKER_DBHOST
+        value: "{{workflow.parameters.chart}}-db"
+      - name: MOODLE_DOCKER_DBNAME
+        value: moodle
+      - name: MOODLE_DOCKER_DBPASS
+        value: m@0dl3ing
+      - name: MOODLE_DOCKER_DBTYPE
+        value: pgsql
+      - name: MOODLE_DOCKER_DBUSER
+        value: moodle
+      - name: MOODLE_DOCKER_WEB_HOST
+        value: localhost
+      - name: MOODLE_DOCKER_WEB_PORT
+        value: "80"
+      - name: MOODLE_COURSE
+        value: "{{inputs.parameters.course}}"        
+      command: [bash]   
+      source : |
+        until `curl -i -L 'http://127.0.0.1/login/index.php' |grep "200 OK" >& /tmp/out`; 
+          do echo sleep && sleep 1;
+        done
+        php admin/tool/generator/cli/maketestplan.php --shortname="$MOODLE_COURSE" --size="XS" > result
+        cat result
+        export TESTPLAN=`cat result | sed -n "1p"`
+        export USERS=`cat result | sed -n "2p"`
+        echo $TESTPLAN $USERS
+        curl $TESTPLAN --output /testplan.jmx
+        curl $USERS --output /users.csv
+
+        function upload() {
+          bucket=$1
+          file=$2
+          host=manager-minio.manager:9000
+          s3_key='AKIAIOSFODNN7EXAMPLE'
+          s3_secret='wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY'
+
+          resource="/${bucket}/${file}"
+          content_type="application/octet-stream"
+          date=`date -R`
+          _signature="PUT\n\n${content_type}\n${date}\n${resource}"
+          signature=`echo -en ${_signature} | openssl sha1 -hmac ${s3_secret} -binary | base64`
+
+          curl -v -X PUT -T "${file}" \
+                    -H "Host: $host" \
+                    -H "Date: ${date}" \
+                    -H "Content-Type: ${content_type}" \
+                    -H "Authorization: AWS ${s3_key}:${signature}" \
+                    http://$host${resource}        
+        }
+        export DIRECTORY={{inputs.parameters.xp-name}}
+        upload experiments/{{workflow.name}}/$DIRECTORY/$MOODLE_COURSE /testplan.jmx
+        upload experiments/{{workflow.name}}/$DIRECTORY/$MOODLE_COURSE /users.csv
+        echo "experiments/{{workflow.name}}/$DIRECTORY/$MOODLE_COURSE"  > /course
+        cat /course
+    sidecars:
+      - name: moodle
+        image: moodlehq/moodle-php-apache:7.2
+        volumeMounts:
+        - mountPath: /var/www/html
+          name: moodle-www  
+        - name: workdir
+          mountPath: /var/www/moodledata
+        env:
+        - name: MOODLE_DOCKER_DBHOST
+          value: "{{workflow.parameters.chart}}-db"
+        - name: MOODLE_DOCKER_DBNAME
+          value: moodle
+        - name: MOODLE_DOCKER_DBPASS
+          value: m@0dl3ing
+        - name: MOODLE_DOCKER_DBTYPE
+          value: pgsql
+        - name: MOODLE_DOCKER_DBUSER
+          value: moodle
+        - name: MOODLE_DOCKER_WEB_HOST
+          value: localhost
+        - name: MOODLE_DOCKER_WEB_PORT
+          value: "80"
+    outputs:
+      parameters:
+      - name: course
+        valueFrom:
+          path: /course
+   
+  - name: launch-jmeter
+    inputs:
+      parameters:
+      - name: xp-name
+      - name: course
+      - name: tenant
+      - name: host
+      - name: web-port
+      - name: size
+      - name: nb-users
+      - name: nb-courses    
+      - name: throughput 
+      - name: zone 
+    metadata:      
+      labels:
+        zone: "client1"
+    nodeSelector:
+      tier: load
+    script:
+      image: grosinosky/jmeter-moodle:0.0.1
+      imagePullPolicy: Always
+      command: [bash]   
+      source: |-
+        mc config host add minio http://manager-minio.manager:9000 AKIAIOSFODNN7EXAMPLE wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY
+
+        export DIRECTORY={{inputs.parameters.xp-name}}
+
+        echo "Launch test on {{inputs.parameters.course}}"
+        mc cp minio/experiments/{{workflow.name}}/$DIRECTORY/{{inputs.parameters.course}}/testplan.jmx .
+        mc cp minio/experiments/{{workflow.name}}/$DIRECTORY/{{inputs.parameters.course}}/users.csv .
+        export MOODLE_DOCKER_WEB_HOST={{inputs.parameters.host}}
+        export MOODLE_DOCKER_WEB_PORT={{inputs.parameters.web-port}}        
+        ./test_runner.sh testGrp test testplan.jmx users.csv site_data.properties \
+          -P "{{inputs.parameters.throughput}}" -h $MOODLE_DOCKER_WEB_HOST -p $MOODLE_DOCKER_WEB_PORT \
+          -u "{{inputs.parameters.nb-users}}" -d 600 -l "-1" 
+        
+        find logs -type f -exec cat {} +
+        
+        echo "Save to http://manager-minio.manager:9000/test/wip/{{inputs.parameters.course}}"  
+        #mc cp --recursive logs minio/experiments/{{workflow.name}}/$DIRECTORY/{{inputs.parameters.course}}
+        #mc cp results/data.csv minio/experiments/{{workflow.name}}/$DIRECTORY/{{inputs.parameters.course}}
+        #mc cp results/data.csv minio/experiments/{{workflow.name}}/$DIRECTORY/data-{{inputs.parameters.tenant}}-{{inputs.parameters.course}}.csv
+        mc cp --recursive logs minio/experiments/{{workflow.name}}/$DIRECTORY/{{inputs.parameters.tenant}}-{{inputs.parameters.host}}
+        mc cp results/data.csv minio/experiments/{{workflow.name}}/$DIRECTORY/{{inputs.parameters.tenant}}-{{inputs.parameters.host}}
+        mc cp results/data.csv minio/experiments/{{workflow.name}}/$DIRECTORY/data-{{inputs.parameters.tenant}}-{{inputs.parameters.host}}.csv
+
+  - name: launch-chaos
+    nodeSelector:
+      tier: manager
+    inputs:
+      artifacts:
+      - name: manager-scripts
+        path: /git/manager-scripts
+        mode: 0755        
+    script:
+      image: alpine/k8s:1.15.11
+      command: [sh]    
+      source: |-
+        cd /git/manager-scripts/xp/xp4-latency/chaos
+        sleep 90
+        ls
+        kubectl apply -f .
+        
+  - name: delete-chaos
+    nodeSelector:
+      tier: manager
+    inputs:
+      artifacts:
+      - name: manager-scripts
+        path: /git/manager-scripts
+        mode: 0755        
+    script:
+      image: alpine/k8s:1.15.11
+      command: [sh]    
+      source: |-
+        cd /git/manager-scripts/xp/xp4-latency/chaos
+        ls
+        # temporary disable
+        #kubectl delete -f .
+          
+
+  ####################""
+  - name: migrate
+    inputs:
+      parameters:
+      - name: xp-name
+      - name: origin_db
+      - name: tenant
+      - name: target_db
+      - name: size
+      - name: nb-users
+      - name: nb-courses   
+      - name: wait-before-migration   
+      artifacts:
+      - name: infra-migration 
+        path: /app/infra.yaml
+      - name: config-migration 
+        path: /app/config.yaml
+      
+    nodeSelector:
+      tier: db-ref
+    script:
+      image: grosinosky/migration-tenant:iomad-36
+      imagePullPolicy: Always
+      env:
+        - name: INFRA_FILE
+          value: infra.yaml      
+        - name: TENANT
+          value: "{{inputs.parameters.tenant}}"
+        - name: ORIGIN_DB
+          value: "{{inputs.parameters.origin_db}}"
+        - name: TARGET_DB
+          value: "{{inputs.parameters.target_db}}"
+      command: [bash]
+      source: |-
+        echo "Wait for {{inputs.parameters.wait-before-migration}} seconds"
+        sleep {{inputs.parameters.wait-before-migration}}
+        python migrate.py --describe
+        start=$(date +%s.%N)
+        python migrate.py --migrate={{inputs.parameters.tenant}},{{inputs.parameters.origin_db}},{{inputs.parameters.target_db}}
+        end=$(date +%s.%N)    
+        runtime=$(python -c "print(${end} - ${start})")        
+        echo "start,end,duration" > /migration.csv
+        echo "$start,$end,$runtime" >> /migration.csv
+    outputs:
+      artifacts:
+      - name: results
+        path: /migration.csv
+        archive:
+          none: {}        
+        s3: 
+          endpoint: manager-minio.manager:9000  
+          bucket: experiments
+          insecure: true
+          key: "{{workflow.name}}/{{inputs.parameters.xp-name}}/migration.csv"
+          accessKeySecret:
+            name: manager-minio
+            key: accesskey
+          secretKeySecret:
+            name: manager-minio
+            key: secretkey        
+##############################
+  - name: merge-results
+    inputs: 
+      parameters:
+      - name: xp-name
+      - name: courses-origin
+      - name: courses-migr
+      - name: courses-target
+      - name: size
+      - name: nb-users
+      - name: nb-courses
+    script:
+      env:
+      - name: SIZE 
+        value: "{{inputs.parameters.size}}"
+      - name: NB-USERS 
+        value: "{{inputs.parameters.nb-users}}"
+      - name: NB-COURSES
+        value: "{{inputs.parameters.nb-courses}}"
+      - name: COURSES-ORIGIN
+        value: "{{inputs.parameters.courses-origin}}"
+      - name: COURSES-MIGR
+        value: "{{inputs.parameters.courses-migr}}"
+      - name: COURSES-TARGET
+        value: "{{inputs.parameters.courses-target}}"
+      - name: XP-NAME
+        value: "{{workflow.parameters.xp-name}}"
+      image: grosinosky/python-script:0.0.1
+      imagePullPolicy: Always
+      command: [python]    
+      source: |-
+        import json
+        import os
+        import psycopg2
+        import yaml
+
+        size = os.environ["SIZE"]
+        nb_users = os.environ["NB-USERS"]
+        nb_courses = os.environ["NB-COURSES"]
+        xp_name_wf = os.environ["XP-NAME"]
+        courses_origin = json.loads(os.environ["COURSES-ORIGIN"])
+        courses_migr = json.loads(os.environ["COURSES-MIGR"])
+        courses_target = json.loads(os.environ["COURSES-TARGET"])
+
+        db_name = "{{workflow.parameters.xp-name}}-{{workflow.name}}"
+        xp_name = '{{inputs.parameters.xp-name}}'
+        import minio
+        from minio import Minio
+
+        minio_client = Minio('manager-minio.manager:9000', access_key="AKIAIOSFODNN7EXAMPLE", secret_key="wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY", secure=False)
+        objects = minio_client.list_objects('experiments', prefix="{{workflow.name}}/"+xp_name, recursive=True)
+        
+        import pandas as pd
+        from pymongo import MongoClient
+        mongo_client = MongoClient('manager-mongo-manager.manager', 27017)
+        db = mongo_client[db_name]
+        coll = db[xp_name]
+
+        host="{{workflow.parameters.chart}}-webserver"
+        for course in courses_origin + courses_migr:
+          #print(minio_client.fget_object('experiments', "{{workflow.name}}/{}/{}/data.csv".format(xp_name, course["course"]), '/tmp/data.csv'))
+          directory = "{}-{}".format(course["tenant"], host)
+          print(directory)
+          print(minio_client.fget_object('experiments', "{{workflow.name}}/{}/{}/data.csv".format(xp_name, directory), '/tmp/data.csv'))
+          data = pd.read_csv("/tmp/data.csv")
+          data["course"] = course["course"]
+          data["tenant"] = course["tenant"]
+          data["order_course"] = course["order_course"]
+          data["size"] = size
+          data["nb_users"] = nb_users
+          data["nb_courses"] = nb_courses
+          data["host"] = host
+          print(data)
+          records = json.loads(data.T.to_json()).values()
+          coll.insert(records)
+
+        host="{{workflow.parameters.chart}}-webserver2"
+        for course in courses_migr + courses_target:
+          directory = "{}-{}".format(course["tenant"], host)
+          print(minio_client.fget_object('experiments', "{{workflow.name}}/{}/{}/data.csv".format(xp_name, directory), '/tmp/data.csv'))
+          data = pd.read_csv("/tmp/data.csv")
+          data["course"] = course["course"]
+          data["tenant"] = course["tenant"]
+          data["order_course"] = course["order_course"]
+          data["size"] = size
+          data["nb_users"] = nb_users
+          data["nb_courses"] = nb_courses
+          data["host"] = host
+          print(data)
+          records = json.loads(data.T.to_json()).values()
+          coll.insert(records)    
+
+        # migration results
+        if len(courses_migr) > 0:
+          print("Log database migrations")
+          coll = db[xp_name + "_migr"]
+          try:
+            print(minio_client.fget_object('experiments', "{{workflow.name}}/{{inputs.parameters.xp-name}}/migration.csv", '/tmp/data.csv'))
+            data = pd.read_csv("/tmp/data.csv")
+            records = json.loads(data.T.to_json()).values()
+            coll.insert(records)
+          except minio.error.NoSuchKey as err:
+            print(err)       
+
+        # log queries
+        m = {
+          "{}-db.default".format("{{workflow.parameters.chart}}"):courses_origin + courses_migr,
+          "{}-db2.default".format("{{workflow.parameters.chart}}"): courses_migr + courses_target
+        }
+
+        logall = "{{workflow.parameters.logall}}"
+        if logall == "true":
+          try:
+            minio_client.fget_object('experiments', "{{workflow.name}}/{{inputs.parameters.xp-name}}/tables.yaml", 'tables.yaml')
+            with open("tables.yaml", 'r') as f:
+              tables_yaml = yaml.load(f, Loader=yaml.FullLoader)
+            reference_tables_str = " ".join(tables_yaml["reference_tables"])
+            coll = db[xp_name + "_tables"]
+            coll.insert(tables_yaml)
+          except minio.error.NoSuchKey as err:
+            tables_yaml = ""       
+          
+
+          print("Log database queries")
+          from decimal import Decimal
+          import decimal
+          class DecimalEncoder(json.JSONEncoder):
+              def default(self, o):
+                  if isinstance(o, decimal.Decimal):
+                      return float(o)
+                  return super(DecimalEncoder, self).default(o)
+          for host in m.keys():     
+            if len(m[host]) == 0:
+              continue             
+            from psycopg2.extras import RealDictCursor    
+            sql = \
+                "select *, '{}' as host "\
+                "from m_log_queries ".format(host)
+            conn = psycopg2.connect("dbname='moodle' user='moodle' host='{}' password='m@0dl3ing'".format(host))
+            cur = conn.cursor(cursor_factory=RealDictCursor)
+            cur.execute(sql)
+            results = cur.fetchall()
+            js_results = json.dumps(results, cls=DecimalEncoder, indent=2)
+            coll = db[xp_name + "_logdb"]
+            coll.insert_many(json.loads(js_results))
+            coll.create_index([('sqltext', 'text')])
+            print("{} queries".format(coll.count_documents({})))
+
+            coll.update_many({},
+                {    
+                    "$set": {
+                    "distributed":"0"
+                    }
+                })
+            if tables_yaml != "":
+              filter = { "$text": { "$search": "{}".format(reference_tables_str) } }
+              coll.update_many(filter,
+                  {    
+                      "$set": {
+                      "distributed":"1"
+                      }
+                  })
+            

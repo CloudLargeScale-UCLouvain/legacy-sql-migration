@@ -1,0 +1,53 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: configuration
+data:
+  infra-k8s.yaml: |
+    ref:
+      config:
+        user: "camunda"
+        server: "psql1"
+        dbname: camunda
+        host: "{{ include "camunda-fdw.fullname" . }}-db-ref"
+        internal_host: "{{ include "camunda-fdw.fullname" . }}-db-ref"
+        port: 5432
+        password: "camunda"
+    db1:
+      config:
+        user: camunda 
+        server: psql1 
+        dbname: camunda
+        host: {{ include "camunda-fdw.fullname" . }}-db
+        internal_host: "{{ include "camunda-fdw.fullname" . }}-db"
+        port: 5432
+        password: camunda
+    db2:
+      config:
+        user: camunda 
+        server: psql1 
+        dbname: camunda
+        host: {{ include "camunda-fdw.fullname" . }}-db2
+        internal_host: "{{ include "camunda-fdw.fullname" . }}-db2" 
+        port: 5432
+        password: camunda
+  init.sh: |
+    while ! pg_isready -h {{ include "camunda-fdw.fullname" . }}-db  > /dev/null 2> /dev/null; do
+      echo "Connecting to  {{ include "camunda-fdw.fullname" . }}-db  Failed"
+      sleep 1
+    done  
+    while ! pg_isready -h {{ include "camunda-fdw.fullname" . }}-db2  > /dev/null 2> /dev/null; do
+      echo "Connecting to  {{ include "camunda-fdw.fullname" . }}-db2  Failed"
+      sleep 1
+    done  
+    while ! pg_isready -h {{ include "camunda-fdw.fullname" . }}-db-ref  > /dev/null 2> /dev/null; do
+      echo "Connecting to  {{ include "camunda-fdw.fullname" . }}-db-ref  Failed"
+      sleep 1
+    done  
+  
+    python3 migrate.py -i
+    export PGPASSWORD=camunda
+    psql -h {{ include "camunda-fdw.fullname" . }}-db -U camunda -p 5432 camunda -c 'ALTER SERVER psql1 OPTIONS (fetch_size '50000');'
+    psql -h {{ include "camunda-fdw.fullname" . }}-db -U camunda -p 5432 camunda < /app/dump_data.sql
+    psql -h {{ include "camunda-fdw.fullname" . }}-db-ref -U camunda -p 5432 camunda < /app/sequence.sql
+    psql -h {{ include "camunda-fdw.fullname" . }}-db2 -U camunda -p 5432 camunda < /app/dump_data.sql

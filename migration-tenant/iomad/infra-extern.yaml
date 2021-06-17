@@ -1,0 +1,27 @@
+ref:
+  config:
+    user: "moodle"
+    server: "psql1"
+    dbname: "moodle"
+    host: localhost
+    internal_host: "moodle-fdw-db-ref"
+    port: 5434
+    password: "m@0dl3ing"
+db1:
+  config:
+    user: moodle 
+    server: psql1 
+    dbname: moodle 
+    host: localhost
+    internal_host: "moodle-fdw-db" 
+    port: 5433
+    password: m@0dl3ing 
+db2:
+  config:
+    user: moodle 
+    server: psql1 
+    dbname: moodle 
+    host: localhost
+    internal_host: "moodle-fdw-db2"
+    port: 5435
+    password: m@0dl3ing 

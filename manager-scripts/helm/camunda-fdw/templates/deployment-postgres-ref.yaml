@@ -1,0 +1,70 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "camunda-fdw.fullname" . }}-db-ref
+  labels:
+    {{- include "camunda-fdw.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "camunda-fdw.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/tier: db-ref
+
+  template:
+    metadata:
+      labels:
+        {{- include "camunda-fdw.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/tier: db-ref
+    spec:
+    {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+    {{- end }}
+      serviceAccountName: {{ include "camunda-fdw.serviceAccountName" . }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      containers:
+        - name: {{ .Chart.Name }}-db-ref
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}
+          env:
+          - name: POSTGRES_DB
+            value: camunda
+          - name: POSTGRES_PASSWORD
+            value: camunda
+          - name: POSTGRES_USER
+            value: camunda
+
+          image: "postgres:11"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          ports:
+            - name: http-db-ref
+              containerPort: 5432
+              protocol: TCP
+#          livenessProbe:
+#            httpGet:
+#              path: /
+#              port: http-db
+#          readinessProbe:
+#            httpGet:
+#              path: /
+#              port: http-db
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+      {{- if eq .Values.podPlacement true }} 
+      nodeSelector:
+        tier: db-ref      
+      {{- end }}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+    {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+    {{- end }}
+    {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+    {{- end }}

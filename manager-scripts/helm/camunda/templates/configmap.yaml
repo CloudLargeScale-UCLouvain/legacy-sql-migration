@@ -1,0 +1,13 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "camunda.fullname" . }}-configuration
+data:
+  init.sh: |
+    while ! pg_isready -h {{ include "camunda.fullname" . }}-db  > /dev/null 2> /dev/null; do
+      echo "Connecting to  {{ include "camunda.fullname" . }}-db  Failed"
+      sleep 1
+    done  
+
+    export PGPASSWORD=camunda
+    psql -h {{ include "camunda.fullname" . }}-db -U camunda -p 5432 camunda < /app/dump_single.sql

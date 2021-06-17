@@ -1,0 +1,3 @@
+[submodule "ManagerKubernetesExperimentations"]
+	path = ManagerKubernetesExperimentations
+	url = https://github.com/CloudLargeScale-UCLouvain/ManagerKubernetesExperimentations

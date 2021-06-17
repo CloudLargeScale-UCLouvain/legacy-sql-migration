@@ -1,0 +1,70 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "camunda.fullname" . }}-db
+  labels:
+    {{- include "camunda.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "camunda.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/tier: db
+
+  template:
+    metadata:
+      labels:
+        {{- include "camunda.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/tier: db
+    spec:
+    {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+    {{- end }}
+      serviceAccountName: {{ include "camunda.serviceAccountName" . }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      containers:
+        - name: {{ .Chart.Name }}-db
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}
+          env:
+          - name: POSTGRES_DB
+            value: camunda
+          - name: POSTGRES_PASSWORD
+            value: camunda
+          - name: POSTGRES_USER
+            value: camunda
+
+          image: "postgres:11"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          ports:
+            - name: http-db
+              containerPort: 5432
+              protocol: TCP
+#          livenessProbe:
+#            httpGet:
+#              path: /
+#              port: http-db
+#          readinessProbe:
+#            httpGet:
+#              path: /
+#              port: http-db
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+      nodeSelector:
+      {{- if eq .Values.podPlacement true }}  
+        tier: db      
+      {{- end }}            
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+    {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+    {{- end }}
+    {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+    {{- end }}

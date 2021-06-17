@@ -1,0 +1,16 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "camunda-fdw.fullname" . }}-db2
+  labels:
+    {{- include "camunda-fdw.labels" . | nindent 4 }}
+spec:
+  type: {{ .Values.service.type }}
+  ports:
+    - port: 5432
+      targetPort: http-db2
+      protocol: TCP
+      name: http-db2
+  selector:
+    {{- include "camunda-fdw.selectorLabels" . | nindent 4 }}
+    app.kubernetes.io/tier: db2

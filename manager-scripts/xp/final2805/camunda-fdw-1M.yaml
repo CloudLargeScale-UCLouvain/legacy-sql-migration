@@ -1,0 +1,73 @@
+xp-name: xp4-camunda
+chart: camunda-fdw
+tests:
+- name: "200-60"
+  size: 0
+  nb-users: 100
+  loops-init: 30
+  duration: 300
+  quantity-tenant-migr: 1
+  quantity-tenant-origin: 0
+  quantity-tenant-target: 0
+  throughput-init: const(25,60s)
+  throughput-origin: 
+  throughput-migr1: const(200,60s)
+  throughput-migr2: 
+  throughput-target: 
+  wait-before-migration: 30
+- name: "200-120"
+  size: 0
+  nb-users: 100
+  loops-init: 30
+  duration: 300
+  quantity-tenant-migr: 1
+  quantity-tenant-origin: 0
+  quantity-tenant-target: 0
+  throughput-init: const(25,60s)
+  throughput-origin: 
+  throughput-migr1: const(200,120s)
+  throughput-migr2: 
+  throughput-target: 
+  wait-before-migration: 30
+- name: "200-180"
+  size: 0
+  nb-users: 100
+  loops-init: 30
+  duration: 300
+  quantity-tenant-migr: 1
+  quantity-tenant-origin: 0
+  quantity-tenant-target: 0
+  throughput-init: const(25,60s)
+  throughput-origin: 
+  throughput-migr1: const(200,180s)
+  throughput-migr2: 
+  throughput-target: 
+  wait-before-migration: 30  
+- name: "200-240"
+  size: 0
+  nb-users: 100
+  loops-init: 30
+  duration: 300
+  quantity-tenant-migr: 1
+  quantity-tenant-origin: 0
+  quantity-tenant-target: 0
+  throughput-init: const(25,60s)
+  throughput-origin: 
+  throughput-migr1: const(200,240s)
+  throughput-migr2: 
+  throughput-target: 
+  wait-before-migration: 30  
+- name: "200-300"
+  size: 0
+  nb-users: 100
+  loops-init: 30
+  duration: 300
+  quantity-tenant-migr: 1
+  quantity-tenant-origin: 0
+  quantity-tenant-target: 0
+  throughput-init: const(25,60s)
+  throughput-origin: 
+  throughput-migr1: const(200,300s)
+  throughput-migr2: 
+  throughput-target: 
+  wait-before-migration: 30  

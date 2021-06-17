@@ -1,0 +1,32 @@
+metadata:
+  infra_file: infra.yaml
+  database_schema_file: db.yaml
+  psql: true
+  tenant:
+    table: m_company
+    identifier: id
+    label: name
+    describe_resource_query: "select distinct c.id, c.name from m_company c join m_company_course cc on c.id = cc.companyid join m_company_users cu on c.id = cu.companyid"
+    tenant_dynamic_tables:
+      - tenant:
+          tableName: "*"
+          fields: ['company', 'companyid']
+          subquery: :field IN (:tenantId)
+      - user:
+          tableName: m_user
+          fields: ['id']
+          subquery: :field IN (SELECT userid FROM m_company_users WHERE companyid = :tenantId)
+      - course:
+          tableName: m_course
+          fields: ['id']
+          subquery: :field IN (SELECT courseid FROM m_company_course WHERE companyid = :tenantId)
+      - user_dependencies:
+          tableName: "*"
+          fields: ['user', 'userid']
+          subquery: :field IN (SELECT userid FROM m_company_users WHERE companyid = :tenantId)
+      - course_dependencies:
+          tableName: "*"
+          fields: ['course', 'courseid']
+          subquery: :field IN (SELECT courseid FROM m_company_course WHERE companyid = :tenantId)
+      - init:
+          tableName: ["m_repository_instance_config", "m_config_plugins", "m_config", "m_tag_area"]

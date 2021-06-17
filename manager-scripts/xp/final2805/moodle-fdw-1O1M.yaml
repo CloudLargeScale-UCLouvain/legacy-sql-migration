@@ -1,0 +1,75 @@
+xp-name: final2805-moodle-fdw-1O1M
+chart: moodle-fdw
+wait-before-migration: 30
+tests:
+- name: "10"
+  size: 0
+  nb-users: 100
+  nb-courses: 10
+  duration: 300
+  quantity-tenant-migr: 1
+  quantity-tenant-origin: 1
+  quantity-tenant-target: 0
+  throughput-init: const(25,60s)
+  throughput-origin: const(10,660s)
+  throughput-migr1: const(10,300s)
+  throughput-migr2: const(10,300s)
+  throughput-target: 
+  wait-before-migration: 30
+- name: "15"
+  size: 0
+  nb-users: 100
+  nb-courses: 10
+  duration: 300
+  quantity-tenant-migr: 1
+  quantity-tenant-origin: 1
+  quantity-tenant-target: 0
+  throughput-init: const(25,60s)
+  throughput-origin: const(15,660s)
+  throughput-migr1: const(15,300s)
+  throughput-migr2: const(15,300s)
+  throughput-target: 
+  wait-before-migration: 30
+- name: "20"
+  size: 0
+  nb-users: 100
+  nb-courses: 10
+  duration: 300
+  quantity-tenant-migr: 1
+  quantity-tenant-origin: 1
+  quantity-tenant-target: 0
+  throughput-init: const(25,60s)
+  throughput-origin: const(20,660s)
+  throughput-migr1: const(20,300s)
+  throughput-migr2: const(20,300s)
+  throughput-target: 
+  wait-before-migration: 30
+- name: "25"
+  size: 0
+  nb-users: 100
+  nb-courses: 10
+  duration: 300
+  quantity-tenant-migr: 1
+  quantity-tenant-origin: 1
+  quantity-tenant-target: 0
+  throughput-init: const(25,60s)
+  throughput-origin: const(25,660s)
+  throughput-migr1: const(25,300s)
+  throughput-migr2: const(25,300s)
+  throughput-target: 
+  wait-before-migration: 30  
+- name: "30"
+  size: 0
+  nb-users: 100
+  nb-courses: 10
+  duration: 300
+  quantity-tenant-migr: 1
+  quantity-tenant-origin: 1
+  quantity-tenant-target: 0
+  throughput-init: const(25,60s)
+  throughput-origin: const(30,660s)
+  throughput-migr1: const(30,300s)
+  throughput-migr2: const(30,300s)
+  throughput-target: 
+  wait-before-migration: 30
+  

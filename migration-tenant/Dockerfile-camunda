@@ -1,0 +1,17 @@
+FROM python:3.7 AS migration-tenant
+
+WORKDIR /app
+COPY requirements.txt ./
+RUN pip install --no-cache-dir -r requirements.txt
+RUN apt update && apt install -y postgresql-client && apt clean
+ENV CONFIG_DIRECTORY /app/
+ENV CONFIG /app/config.yaml
+COPY migrate.py .
+ENTRYPOINT ["python", "./migrate.py"]
+
+FROM migration-tenant AS migration-tenant-moodle
+COPY camunda/config.yaml ./
+COPY camunda/db.yaml ./
+COPY camunda/dump_data.sql ./
+COPY camunda/sequence.sql ./
+COPY camunda/dump_single.sql ./

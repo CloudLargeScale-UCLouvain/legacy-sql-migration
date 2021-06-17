@@ -1,0 +1,104 @@
+version: "3.7"
+services:
+  mailhog:
+    image: mailhog/mailhog
+
+  db-ref:
+    image: postgres:11
+    environment:
+      POSTGRES_USER: moodle
+      POSTGRES_PASSWORD: "m@0dl3ing"
+      POSTGRES_DB: moodle_ref
+    ports:
+      - 5433:5432
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U moodle -d moodle_ref"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+  db:
+    image: postgres:11
+    environment:
+      POSTGRES_USER: moodle
+      POSTGRES_PASSWORD: "m@0dl3ing"
+      POSTGRES_DB: moodle
+    ports:
+      - 5432:5432
+    depends_on:
+      - db-ref
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U moodle"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+  db2:    
+    image: postgres:11
+    environment:
+      POSTGRES_USER: moodle
+      POSTGRES_PASSWORD: "m@0dl3ing"
+      POSTGRES_DB: moodle
+    ports:
+      - 5434:5432
+    depends_on:
+      - db-ref
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U moodle"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+  
+  webserver:
+    image: "moodlehq/moodle-php-apache:${MOODLE_DOCKER_PHP_VERSION:-7.2}"
+    volumes:
+      - "./iomad/iomad:/var/www/html"
+      - "./iomad/moodle-docker/assets/web/apache2_faildumps.conf:/etc/apache2/conf-enabled/apache2_faildumps.conf"
+      - "./iomad/moodle-docker/assets/web/apache2_mailhog.conf:/etc/apache2/conf-enabled/apache2_mailhog.conf"
+
+    environment:
+      MOODLE_DOCKER_DBTYPE: pgsql
+      MOODLE_DOCKER_DBHOST: db
+      MOODLE_DOCKER_DBNAME: moodle
+      MOODLE_DOCKER_DBUSER: moodle
+      MOODLE_DOCKER_DBPASS: "m@0dl3ing"
+      MOODLE_DOCKER_BROWSER: firefox
+      MOODLE_DOCKER_WEB_HOST: "${MOODLE_DOCKER_WEB_HOST:-localhost}"
+      MOODLE_DOCKER_WEB_PORT: "${MOODLE_DOCKER_WEB_PORT:-8000}"
+    ports:
+      - "${MOODLE_DOCKER_WEB_PORT:-8000}:80"      
+    depends_on:
+      - mailhog
+      - db
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:80"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+  webserver2:
+    image: "moodlehq/moodle-php-apache:${MOODLE_DOCKER_PHP_VERSION:-7.2}"
+    volumes:
+      - "./iomad/iomad:/var/www/html"
+      - "./iomad/moodle-docker/assets/web/apache2_faildumps.conf:/etc/apache2/conf-enabled/apache2_faildumps.conf"
+      - "./iomad/moodle-docker/assets/web/apache2_mailhog.conf:/etc/apache2/conf-enabled/apache2_mailhog.conf"
+
+    environment:
+      MOODLE_DOCKER_DBTYPE: pgsql
+      MOODLE_DOCKER_DBHOST: db2
+      MOODLE_DOCKER_DBNAME: moodle
+      MOODLE_DOCKER_DBUSER: moodle
+      MOODLE_DOCKER_DBPASS: "m@0dl3ing"
+      MOODLE_DOCKER_BROWSER: firefox
+      MOODLE_DOCKER_WEB_HOST: "${MOODLE_DOCKER_WEB2_HOST:-localhost}"
+      MOODLE_DOCKER_WEB_PORT: "${MOODLE_DOCKER_WEB2_PORT:-8001}"
+    ports:
+      - "8001:80"      
+    depends_on:
+      - mailhog
+      - db2
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:80"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+    

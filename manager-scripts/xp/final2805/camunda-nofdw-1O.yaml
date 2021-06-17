@@ -1,0 +1,45 @@
+xp-name: final2805-camunda-nofdw-1O
+chart: camunda
+tests:
+- name: "50-100"
+  size: 0
+  nb-users: 100
+  loops-init: 30
+  duration: 300
+  quantity-tenant-migr: 0
+  quantity-tenant-origin: 1
+  quantity-tenant-target: 0
+  throughput-init: const(50,60s)
+  throughput-origin: const(50,300s)
+  throughput-migr1: 
+  throughput-migr2: 
+  throughput-target: 
+  wait-before-migration: 30
+- name: "100-100"
+  size: 0
+  nb-users: 100
+  loops-init: 30
+  duration: 300
+  quantity-tenant-migr: 0
+  quantity-tenant-origin: 1
+  quantity-tenant-target: 0
+  throughput-init: const(25,60s)
+  throughput-origin: const(100,300s)
+  throughput-migr1: 
+  throughput-migr2: 
+  throughput-target: 
+  wait-before-migration: 30  
+- name: "150-100"
+  size: 0
+  nb-users: 100
+  loops-init: 30
+  duration: 300
+  quantity-tenant-migr: 0
+  quantity-tenant-origin: 1
+  quantity-tenant-target: 0
+  throughput-init: const(25,60s)
+  throughput-origin: const(150,300s)
+  throughput-migr1: 
+  throughput-migr2: 
+  throughput-target: 
+  wait-before-migration: 30    

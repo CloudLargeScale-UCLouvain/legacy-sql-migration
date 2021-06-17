@@ -1,0 +1,38 @@
+version: '3.7'
+services:
+  python:
+    build:
+      context: ./manager-scripts/docker/python-full
+      dockerfile: Dockerfile
+      network: host
+    image: grosinosky/python-script:0.0.1 
+  jmeter:
+    build:
+      context: ./manager-scripts/docker/jmeter-moodle
+      dockerfile: Dockerfile
+      network: host
+    image: grosinosky/jmeter-moodle:0.0.1
+  camunda-init:
+    build:
+      context: ./camunda/init-tenants
+      dockerfile: Dockerfile
+      network: host
+    image: grosinosky/camunda-bpm-platform:tomcat-7.8.0
+  camunda-fdw:
+    build:
+      context: ./camunda/camunda-bpm-platform
+      dockerfile: Dockerfile
+      network: host
+    image: grosinosky/camunda-bpm-platform:tomcat-7.8.0-fdw
+  migration-camunda:
+    build:
+      context: ./migration-tenant
+      dockerfile: Dockerfile-camunda
+      network: host
+    image: grosinosky/migration-tenant:camunda-7.8.0
+  migration-iomad:
+    build:
+      context: ./migration-tenant
+      dockerfile: Dockerfile-iomad
+      network: host
+    image: grosinosky/migration-tenant:iomad-36    
