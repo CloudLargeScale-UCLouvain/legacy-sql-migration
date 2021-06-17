@@ -20,7 +20,7 @@ We assume the presence of three configurations files:
 Please refer to the Camunda and Iomad samples, and the source code for reference.
 
 The following commands can be launched with migrate-tenant:
-- `--init` / `-i`: generates a split database structure (tenant, reference) on origin and target database, based on the infrastructure file (`infra.yaml`), the initial database structure file (`db.yaml`) and the configuration file (`config.yaml`). 
+- `--init` / `-i`: generates a split database structure (tenant, reference) on all parametered databases, based on the infrastructure file (`infra.yaml`), the initial database structure file (`db.yaml`) and the configuration file (`config.yaml`). 
 - `--migrate` / `-m`: launch the migration of a tenant with a given identifier from an origin to a destination database.
 - `--describe` / `-d`: describes the current state of the database (list of databases and which tenant is on which database)
 - `--export` / `-e`: exports the list of the reference and database tables to a YAML file
@@ -39,7 +39,7 @@ pg_dump --column-inserts --data-only --disable-triggers -h localhost -U camunda 
 cat dump_data.sql |grep setval > sequence.sql
 ```
 
-Prepare the configuration files: `infra.yaml` should point on the databases (origin, destination, and reference). `config.yaml` should target the good files, and precise the wanted tenant table, tenant database tables, and their subqueries. As an example, you can find below the Camunda `config.yaml` file:
+Prepare the configuration files: `infra.yaml` should point on the databases (tenant databases, and reference). `config.yaml` should target the good files, and precise the wanted tenant table, tenant database tables, and their subqueries. As an example, you can find below the Camunda `config.yaml` file:
 ```yaml
 metadata:
   infra_file: infra-intern.yaml
@@ -66,7 +66,7 @@ Once everything is ready, execute the initialization command to generate the str
 python migrate.py -i
 ```
 
-Once the structure is set, you should source the minimal data for the application: 
+Once the structure is set, you should source the minimal data for the application, here an example with two tenant databases: 
 ```
 # origin database
 psql -h localhost -U camunda -p 5432 camunda < dump_data.sql
@@ -76,7 +76,7 @@ psql -h localhost -U camunda -p 5434 camunda < dump_data.sql
 psql -h localhost -U camunda -p 5433 camunda < sequence.sql
 ```
 
-The system is running. You can connect webservers to origin or destination database. To migrate a tenant with the _tenantid_ identifier, from the tenant database _db1_ to _db2_ you can launch the following commands:
+The system is running. You can connect webservers to the tenant databases. To migrate a tenant with the _tenantid_ identifier, from the tenant database _db1_ to _db2_ you can launch the following commands:
 ```
 python migrate.py --describe # the tenant is on db1
 python migrate.py --migrate=tenantid,db1,db2
